@@ -4,6 +4,8 @@ import adapter from '@sveltejs/adapter-vercel';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
+	// An HMR reload mid-interaction makes e2e runs flaky, so the e2e server serves without it.
+	server: { hmr: !process.env.E2E },
 	plugins: [
 		tailwindcss(),
 		sveltekit({

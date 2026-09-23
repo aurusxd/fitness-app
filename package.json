@@ -20,6 +20,7 @@
 		"db:migrate": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
 		"db:migrate:apply": "tsx src/lib/server/db/migrate.ts",
+		"db:reset:e2e": "node -e \"require('node:fs').rmSync('data/e2e.db', { force: true })\"",
 		"db:seed": "tsx src/lib/server/db/seed.ts"
 	},
 	"devDependencies": {

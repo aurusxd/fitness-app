@@ -18,7 +18,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'Invalid request body' }, { status: 400 });
 	}
 
-	const aiClient = new DeepseekClient(config.deepseekApiKey);
+	const aiClient = new DeepseekClient(config.deepseekApiKey, config.deepseekBaseUrl);
 	const aiTrainerService = new AiTrainerService(aiClient);
 
 	try {

@@ -20,7 +20,7 @@ export const POST: RequestHandler = async ({ locals }) => {
 		);
 	}
 
-	const aiClient = new DeepseekClient(config.deepseekApiKey);
+	const aiClient = new DeepseekClient(config.deepseekApiKey, config.deepseekBaseUrl);
 	const aiTrainerService = new AiTrainerService(aiClient);
 
 	try {
