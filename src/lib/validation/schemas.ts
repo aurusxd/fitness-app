@@ -29,3 +29,12 @@ export const generatedProgramSchema = z.object({
 });
 
 export type GeneratedProgram = z.infer<typeof generatedProgramSchema>;
+
+export const logWorkoutSetSchema = z.object({
+	programExerciseId: z.number().int().positive(),
+	setsDone: z.number().int().positive().max(20),
+	repsDone: z.string().trim().min(1).max(50),
+	weightKg: z.number().positive().max(1000).optional()
+});
+
+export type LogWorkoutSetInput = z.infer<typeof logWorkoutSetSchema>;

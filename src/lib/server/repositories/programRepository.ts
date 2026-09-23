@@ -95,6 +95,17 @@ export class ProgramRepository {
 		return this.findById(programRow.id);
 	}
 
+	async programExerciseBelongsTo(programExerciseId: number, userId: number): Promise<boolean> {
+		const row = await this.database
+			.select({ id: programExercises.id })
+			.from(programExercises)
+			.innerJoin(workoutPrograms, eq(programExercises.programId, workoutPrograms.id))
+			.where(and(eq(programExercises.id, programExerciseId), eq(workoutPrograms.userId, userId)))
+			.get();
+
+		return row !== undefined;
+	}
+
 	async listByUser(userId: number): Promise<WorkoutProgram[]> {
 		const programRows = await this.database
 			.select()

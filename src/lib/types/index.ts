@@ -22,3 +22,15 @@ export interface WorkoutProgramDto {
 	createdAt: string;
 	days: { dayIndex: number; exercises: ProgramExerciseDto[] }[];
 }
+
+export interface WorkoutLogDto {
+	id: number;
+	programExerciseId: number;
+	programId: number;
+	programTitle: string;
+	exerciseName: string;
+	performedAt: string;
+	setsDone: number;
+	repsDone: string;
+	weightKg: number | null;
+}
