@@ -19,8 +19,8 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
-		"db:migrate:apply": "tsx --env-file=.env src/lib/server/db/migrate.ts",
-		"db:seed": "tsx --env-file=.env src/lib/server/db/seed.ts"
+		"db:migrate:apply": "tsx src/lib/server/db/migrate.ts",
+		"db:seed": "tsx src/lib/server/db/seed.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
@@ -50,8 +50,14 @@
 		"vitest": "^4.1.8"
 	},
 	"dependencies": {
+		"@lucide/svelte": "^1.47.0",
 		"better-sqlite3": "^13.0.2",
+		"bits-ui": "^2.19.3",
+		"clsx": "^2.1.1",
+		"dotenv": "^18.0.3",
 		"pino": "^10.3.1",
+		"tailwind-merge": "^3.7.0",
+		"tailwind-variants": "^3.3.1",
 		"zod": "^4.6.5"
 	}
 }
