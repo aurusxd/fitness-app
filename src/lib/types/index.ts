@@ -23,6 +23,17 @@ export interface WorkoutProgramDto {
 	days: { dayIndex: number; exercises: ProgramExerciseDto[] }[];
 }
 
+export interface ExerciseDto {
+	id: number;
+	name: string;
+	muscleGroup: string;
+	equipment: string | null;
+	videoUrl: string | null;
+	description: string | null;
+	isBodyweight: boolean;
+	needsCategorisation: boolean;
+}
+
 export interface WorkoutLogDto {
 	id: number;
 	programExerciseId: number;

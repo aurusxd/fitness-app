@@ -38,3 +38,18 @@ export const logWorkoutSetSchema = z.object({
 });
 
 export type LogWorkoutSetInput = z.infer<typeof logWorkoutSetSchema>;
+
+export const exerciseFilterSchema = z.object({
+	muscleGroup: z.string().trim().min(1).max(50).optional(),
+	equipment: z.string().trim().min(1).max(50).optional(),
+	search: z.string().trim().min(1).max(100).optional()
+});
+
+export type ExerciseFilterInput = z.infer<typeof exerciseFilterSchema>;
+
+export const updateExerciseSchema = z.object({
+	muscleGroup: z.string().trim().min(1).max(50),
+	equipment: z.string().trim().max(50).nullable()
+});
+
+export type UpdateExerciseInput = z.infer<typeof updateExerciseSchema>;
