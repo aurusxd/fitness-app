@@ -7,6 +7,8 @@ export default defineConfig({
 	testDir: 'e2e',
 	testMatch: '**/*.e2e.{ts,js}',
 	globalSetup: './e2e/global-setup.ts',
+	// One database is shared by the whole run, so parallel workers would fight over it.
+	workers: 1,
 	use: { baseURL: `http://localhost:${APP_PORT}` },
 	webServer: [
 		{

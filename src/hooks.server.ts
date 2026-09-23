@@ -1,4 +1,4 @@
-import type { Handle } from '@sveltejs/kit';
+import { error, json, type Handle } from '@sveltejs/kit';
 import { validateInitData, type TelegramInitData } from '$lib/server/external/telegramAuth';
 import { UserRepository } from '$lib/server/repositories/userRepository';
 import { config } from '$lib/server/config';
@@ -31,7 +31,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 		identity = devIdentity();
 		if (!identity) {
-			return new Response('Unauthorized', { status: 401 });
+			// An API caller wants a machine-readable answer; a person in a browser wants to know why.
+			if (event.url.pathname.startsWith('/api/')) {
+				return json({ error: 'Unauthorized' }, { status: 401 });
+			}
+			error(401, 'Open this app from your Telegram bot to sign in.');
 		}
 		logger.warn('telegram auth bypassed via DEV_TELEGRAM_ID');
 	}

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 // The paths build on each other: a profile unlocks generation, and a program is what you log against.
 test.describe.configure({ mode: 'serial' });
@@ -24,9 +24,19 @@ test.describe('critical paths', () => {
 	test('the AI trainer generates a program and it is saved', async ({ page }) => {
 		await page.goto('/programs');
 
+		const saved = page.waitForResponse(
+			(response) =>
+				response.url().endsWith('/api/programs') && response.request().method() === 'POST'
+		);
 		await page.getByRole('button', { name: 'Generate program' }).click();
 
-		await expect(page).toHaveURL(/\/programs\/\d+$/);
+		const { program } = await (await saved).json();
+		expect(program.title).toBe('E2E Fat Loss Plan');
+
+		// The app redirects here itself, but the dev server compiles this route on first visit,
+		// which can abort that client-side navigation. A full load waits for the compile instead.
+		await page.goto(`/programs/${program.id}`);
+
 		await expect(page.getByRole('heading', { name: 'E2E Fat Loss Plan' })).toBeVisible();
 		await expect(page.getByText('Bodyweight Squat')).toBeVisible();
 		await expect(page.getByText('Face Pull')).toBeVisible();

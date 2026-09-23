@@ -57,16 +57,30 @@ describe('hooks.server handle', () => {
 		expect(response.status).toBe(200);
 	});
 
-	it('rejects protected routes without an Authorization header', async () => {
+	it('sends an unauthenticated visitor a readable page explaining how to sign in', async () => {
+		const { handle } = await import('./hooks.server');
+		const resolve = vi.fn();
+
+		await expect(
+			handle({ event: makeEvent('/(app)/trainer', '/trainer', null), resolve })
+		).rejects.toMatchObject({
+			status: 401,
+			body: { message: expect.stringContaining('Telegram') }
+		});
+		expect(resolve).not.toHaveBeenCalled();
+	});
+
+	it('answers an unauthenticated API call with JSON rather than a page', async () => {
 		const { handle } = await import('./hooks.server');
 		const resolve = vi.fn();
 
 		const response = await handle({
-			event: makeEvent('/(app)/trainer', '/trainer', null),
+			event: makeEvent('/api/trainer', '/api/trainer', null),
 			resolve
 		});
 
 		expect(response.status).toBe(401);
+		expect(response.headers.get('content-type')).toContain('application/json');
 		expect(resolve).not.toHaveBeenCalled();
 	});
 
@@ -125,12 +139,9 @@ describe('hooks.server handle', () => {
 			const { handle } = await import('./hooks.server');
 			const resolve = vi.fn();
 
-			const response = await handle({
-				event: makeEvent('/(app)/trainer', '/trainer', null),
-				resolve
-			});
-
-			expect(response.status).toBe(401);
+			await expect(
+				handle({ event: makeEvent('/(app)/trainer', '/trainer', null), resolve })
+			).rejects.toMatchObject({ status: 401 });
 			expect(resolve).not.toHaveBeenCalled();
 		});
 	});
