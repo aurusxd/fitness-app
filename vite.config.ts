@@ -29,7 +29,13 @@ export default defineConfig({
 					name: 'server',
 					environment: 'node',
 					include: ['src/**/*.{test,spec}.{js,ts}'],
-					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
+					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}'],
+					env: {
+						DEEPSEEK_API_KEY: 'test-deepseek-key',
+						TELEGRAM_BOT_TOKEN: 'test-bot-token',
+						DATABASE_URL: ':memory:',
+						NODE_ENV: 'test'
+					}
 				}
 			}
 		]
