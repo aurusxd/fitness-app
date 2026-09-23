@@ -39,6 +39,14 @@ export const logWorkoutSetSchema = z.object({
 
 export type LogWorkoutSetInput = z.infer<typeof logWorkoutSetSchema>;
 
+export const updateProfileSchema = z.object({
+	goal: z.enum(['gain', 'lose', 'maintain']),
+	level: z.enum(['beginner', 'intermediate', 'advanced']),
+	constraints: z.string().trim().max(500).nullable()
+});
+
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
 export const exerciseFilterSchema = z.object({
 	muscleGroup: z.string().trim().min(1).max(50).optional(),
 	equipment: z.string().trim().min(1).max(50).optional(),

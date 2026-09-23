@@ -27,4 +27,54 @@ describe('UserRepository', () => {
 	it('returns null from findByTelegramId when no user exists', async () => {
 		expect(await repository.findByTelegramId('unknown')).toBeNull();
 	});
+
+	describe('updateProfile', () => {
+		it('completes the profile, which is what unlocks program generation', async () => {
+			const user = await repository.findOrCreateByTelegram('42', 'olivia');
+			expect(user.hasCompleteProfile()).toBe(false);
+
+			const updated = await repository.updateProfile(user.id, {
+				goal: 'lose',
+				level: 'beginner',
+				constraints: 'Sensitive left knee'
+			});
+
+			expect(updated?.goal).toBe('lose');
+			expect(updated?.level).toBe('beginner');
+			expect(updated?.constraints).toBe('Sensitive left knee');
+			expect(updated?.hasCompleteProfile()).toBe(true);
+		});
+
+		it('stores blank constraints as null rather than an empty string', async () => {
+			const user = await repository.findOrCreateByTelegram('42', 'olivia');
+
+			const updated = await repository.updateProfile(user.id, {
+				goal: 'gain',
+				level: 'advanced',
+				constraints: '   '
+			});
+
+			expect(updated?.constraints).toBeNull();
+		});
+
+		it('persists the change for the next lookup', async () => {
+			const user = await repository.findOrCreateByTelegram('42', 'olivia');
+			await repository.updateProfile(user.id, {
+				goal: 'maintain',
+				level: 'intermediate',
+				constraints: null
+			});
+
+			const reloaded = await repository.findByTelegramId('42');
+
+			expect(reloaded?.goal).toBe('maintain');
+			expect(reloaded?.level).toBe('intermediate');
+		});
+
+		it('returns null when the user does not exist', async () => {
+			expect(
+				await repository.updateProfile(9999, { goal: 'lose', level: 'beginner', constraints: null })
+			).toBeNull();
+		});
+	});
 });

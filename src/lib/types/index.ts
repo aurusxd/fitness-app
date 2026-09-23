@@ -23,6 +23,17 @@ export interface WorkoutProgramDto {
 	days: { dayIndex: number; exercises: ProgramExerciseDto[] }[];
 }
 
+export type UserGoal = 'gain' | 'lose' | 'maintain';
+export type UserLevel = 'beginner' | 'intermediate' | 'advanced';
+
+export interface UserProfileDto {
+	username: string | null;
+	goal: UserGoal | null;
+	level: UserLevel | null;
+	constraints: string | null;
+	isComplete: boolean;
+}
+
 export interface ExerciseDto {
 	id: number;
 	name: string;

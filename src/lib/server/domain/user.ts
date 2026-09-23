@@ -1,3 +1,4 @@
+import type { UserProfileDto } from '$lib/types';
 import type { users } from '../db/schema';
 
 export type UserRow = typeof users.$inferSelect;
@@ -31,5 +32,15 @@ export class User {
 
 	hasCompleteProfile(): boolean {
 		return this.goal !== null && this.level !== null;
+	}
+
+	toProfileDto(): UserProfileDto {
+		return {
+			username: this.username,
+			goal: this.goal,
+			level: this.level,
+			constraints: this.constraints,
+			isComplete: this.hasCompleteProfile()
+		};
 	}
 }
