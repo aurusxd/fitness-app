@@ -1,10 +1,18 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createTestDb } from '../db/createTestDb';
-import { users } from '../db/schema';
+import { users, workoutPrograms } from '../db/schema';
 import { ChatMessageRepository } from '../repositories/chatMessageRepository';
+import { ExerciseRepository } from '../repositories/exerciseRepository';
+import { ProgramRepository } from '../repositories/programRepository';
 import type { AiChatMessage, AiClient, AiResponse } from '../external/deepseekClient';
 import { DeepseekApiError } from '../external/deepseekClient';
-import { AiTrainerError, AiTrainerService, RateLimitExceededError } from './aiTrainerService';
+import {
+	AiTrainerError,
+	AiTrainerService,
+	InvalidAiResponseError,
+	RateLimitExceededError,
+	type ProfileForGeneration
+} from './aiTrainerService';
 
 class FakeAiClient implements AiClient {
 	public calls: AiChatMessage[][] = [];
@@ -22,13 +30,30 @@ class FakeAiClient implements AiClient {
 	}
 }
 
+const PROFILE: ProfileForGeneration = { goal: 'lose', level: 'beginner', constraints: null };
+
+const VALID_PROGRAM_JSON = JSON.stringify({
+	title: 'Fat Loss Kickstart',
+	days: [
+		{
+			dayIndex: 0,
+			exercises: [{ exerciseName: 'Push-Up', sets: 3, reps: '10-12', restSeconds: 60 }]
+		}
+	]
+});
+
 describe('AiTrainerService', () => {
+	let db: Awaited<ReturnType<typeof createTestDb>>;
 	let chatMessageRepository: ChatMessageRepository;
+	let exerciseRepository: ExerciseRepository;
+	let programRepository: ProgramRepository;
 	let userId: number;
 
 	beforeEach(async () => {
-		const db = await createTestDb();
+		db = await createTestDb();
 		chatMessageRepository = new ChatMessageRepository(db);
+		exerciseRepository = new ExerciseRepository(db);
+		programRepository = new ProgramRepository(db);
 		const row = await db
 			.insert(users)
 			.values({ telegramId: '1', createdAt: new Date() })
@@ -37,9 +62,18 @@ describe('AiTrainerService', () => {
 		userId = row.id;
 	});
 
+	function makeService(aiClient: AiClient) {
+		return new AiTrainerService(
+			aiClient,
+			chatMessageRepository,
+			exerciseRepository,
+			programRepository
+		);
+	}
+
 	it('persists the user message and the assistant reply, returning the reply', async () => {
 		const aiClient = new FakeAiClient({ content: 'Great, let’s get moving!' });
-		const service = new AiTrainerService(aiClient, chatMessageRepository);
+		const service = makeService(aiClient);
 
 		const reply = await service.sendMessage(userId, 'I feel tired today');
 
@@ -55,7 +89,7 @@ describe('AiTrainerService', () => {
 
 	it('sends the conversation history to the AiClient with mapped roles', async () => {
 		const aiClient = new FakeAiClient({ content: 'ok' });
-		const service = new AiTrainerService(aiClient, chatMessageRepository);
+		const service = makeService(aiClient);
 
 		await service.sendMessage(userId, 'hello');
 
@@ -64,7 +98,7 @@ describe('AiTrainerService', () => {
 
 	it('retries once on a 500 and returns a clean error if it fails again', async () => {
 		const aiClient = new FakeAiClient(new DeepseekApiError(500), new DeepseekApiError(500));
-		const service = new AiTrainerService(aiClient, chatMessageRepository);
+		const service = makeService(aiClient);
 
 		await expect(service.sendMessage(userId, 'hi')).rejects.toThrow(AiTrainerError);
 		expect(aiClient.calls).toHaveLength(2);
@@ -72,7 +106,7 @@ describe('AiTrainerService', () => {
 
 	it('recovers when the retry succeeds after a transient failure', async () => {
 		const aiClient = new FakeAiClient(new DeepseekApiError(500), { content: 'recovered' });
-		const service = new AiTrainerService(aiClient, chatMessageRepository);
+		const service = makeService(aiClient);
 
 		const reply = await service.sendMessage(userId, 'hi');
 
@@ -82,7 +116,7 @@ describe('AiTrainerService', () => {
 
 	it('does not retry on a non-retryable (4xx) failure', async () => {
 		const aiClient = new FakeAiClient(new DeepseekApiError(401));
-		const service = new AiTrainerService(aiClient, chatMessageRepository);
+		const service = makeService(aiClient);
 
 		await expect(service.sendMessage(userId, 'hi')).rejects.toThrow(AiTrainerError);
 		expect(aiClient.calls).toHaveLength(1);
@@ -94,11 +128,82 @@ describe('AiTrainerService', () => {
 		}
 
 		const aiClient = new FakeAiClient({ content: 'should not be called' });
-		const service = new AiTrainerService(aiClient, chatMessageRepository);
+		const service = makeService(aiClient);
 
 		await expect(service.sendMessage(userId, 'one too many')).rejects.toThrow(
 			RateLimitExceededError
 		);
 		expect(aiClient.calls).toHaveLength(0);
+	});
+
+	describe('generateProgram', () => {
+		it('parses a valid JSON response, matches/creates exercises and saves the program', async () => {
+			const aiClient = new FakeAiClient({ content: VALID_PROGRAM_JSON });
+			const service = makeService(aiClient);
+
+			const program = await service.generateProgram(userId, PROFILE);
+
+			expect(program.title).toBe('Fat Loss Kickstart');
+			expect(program.source).toBe('ai_generated');
+			expect(program.days).toEqual([
+				{
+					dayIndex: 0,
+					exercises: [expect.objectContaining({ exerciseName: 'Push-Up', sets: 3, reps: '10-12' })]
+				}
+			]);
+
+			const exercise = await exerciseRepository.findByNormalizedName('push-up');
+			expect(exercise).not.toBeNull();
+		});
+
+		it('reuses an existing exercise instead of creating a duplicate', async () => {
+			const existing = await exerciseRepository.findOrCreateByName('Push-Up');
+			const aiClient = new FakeAiClient({ content: VALID_PROGRAM_JSON });
+			const service = makeService(aiClient);
+
+			const program = await service.generateProgram(userId, PROFILE);
+
+			expect(program.days[0].exercises[0].exerciseId).toBe(existing.id);
+		});
+
+		it('rejects a response that is not valid JSON and saves nothing', async () => {
+			const aiClient = new FakeAiClient({ content: 'not json at all' });
+			const service = makeService(aiClient);
+
+			await expect(service.generateProgram(userId, PROFILE)).rejects.toThrow(
+				InvalidAiResponseError
+			);
+
+			const savedPrograms = await db.select().from(workoutPrograms).all();
+			expect(savedPrograms).toHaveLength(0);
+		});
+
+		it('rejects JSON that does not match the program schema and saves nothing', async () => {
+			const aiClient = new FakeAiClient({ content: JSON.stringify({ title: 'No days here' }) });
+			const service = makeService(aiClient);
+
+			await expect(service.generateProgram(userId, PROFILE)).rejects.toThrow(
+				InvalidAiResponseError
+			);
+
+			const savedPrograms = await db.select().from(workoutPrograms).all();
+			expect(savedPrograms).toHaveLength(0);
+		});
+
+		it('requests a JSON-mode response from the AiClient', async () => {
+			const aiClient = new FakeAiClient({ content: VALID_PROGRAM_JSON });
+			let capturedOptions: unknown;
+			const spyingClient: AiClient = {
+				chat: (messages, options) => {
+					capturedOptions = options;
+					return aiClient.chat(messages);
+				}
+			};
+			const service = makeService(spyingClient);
+
+			await service.generateProgram(userId, PROFILE);
+
+			expect(capturedOptions).toEqual({ responseFormat: 'json' });
+		});
 	});
 });

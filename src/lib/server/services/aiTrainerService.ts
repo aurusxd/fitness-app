@@ -1,11 +1,29 @@
 import type { ChatMessageDto } from '$lib/types';
+import { generatedProgramSchema, type GeneratedProgram } from '$lib/validation/schemas';
 import { ChatMessageRepository, toChatMessageDto } from '../repositories/chatMessageRepository';
-import { DeepseekApiError, type AiChatMessage, type AiClient } from '../external/deepseekClient';
+import { ExerciseRepository } from '../repositories/exerciseRepository';
+import { ProgramRepository, type NewProgramExercise } from '../repositories/programRepository';
+import type { WorkoutProgram } from '../domain/workoutProgram';
+import {
+	DeepseekApiError,
+	type AiChatMessage,
+	type AiChatOptions,
+	type AiClient
+} from '../external/deepseekClient';
 import { logger } from '../logger';
 
 const HISTORY_LIMIT = 20;
 const RATE_LIMIT_PER_HOUR = 30;
 const RETRY_DELAY_MS = 1000;
+
+const PROGRAM_SYSTEM_PROMPT = `You are a certified fitness trainer. Generate a workout program as strict JSON only, with no markdown and no commentary, matching exactly this shape:
+{"title": string, "days": [{"dayIndex": number (0-6), "exercises": [{"exerciseName": string, "sets": number, "reps": string, "restSeconds": number}]}]}`;
+
+export interface ProfileForGeneration {
+	goal: 'gain' | 'lose' | 'maintain';
+	level: 'beginner' | 'intermediate' | 'advanced';
+	constraints: string | null;
+}
 
 export class RateLimitExceededError extends Error {
 	constructor() {
@@ -21,6 +39,13 @@ export class AiTrainerError extends Error {
 	}
 }
 
+export class InvalidAiResponseError extends Error {
+	constructor() {
+		super('The AI generated an invalid program. Please try again.');
+		this.name = 'InvalidAiResponseError';
+	}
+}
+
 function isRetryable(error: unknown): boolean {
 	if (error instanceof DeepseekApiError) return error.status >= 500;
 	return error instanceof Error && error.name === 'AbortError';
@@ -30,10 +55,22 @@ function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function buildProfileMessage(profile: ProfileForGeneration): string {
+	return [
+		`Goal: ${profile.goal}.`,
+		`Level: ${profile.level}.`,
+		profile.constraints ? `Constraints: ${profile.constraints}.` : null
+	]
+		.filter(Boolean)
+		.join(' ');
+}
+
 export class AiTrainerService {
 	constructor(
 		private readonly aiClient: AiClient,
-		private readonly chatMessageRepository: ChatMessageRepository = new ChatMessageRepository()
+		private readonly chatMessageRepository: ChatMessageRepository = new ChatMessageRepository(),
+		private readonly exerciseRepository: ExerciseRepository = new ExerciseRepository(),
+		private readonly programRepository: ProgramRepository = new ProgramRepository()
 	) {}
 
 	async history(userId: number, limit = HISTORY_LIMIT): Promise<ChatMessageDto[]> {
@@ -69,9 +106,62 @@ export class AiTrainerService {
 		return toChatMessageDto(assistantRow);
 	}
 
-	private async requestReplyWithRetry(messages: AiChatMessage[]) {
+	/** Generates a structured workout program from the user's profile and persists it, or rejects without saving anything (tech.md §5). */
+	async generateProgram(userId: number, profile: ProfileForGeneration): Promise<WorkoutProgram> {
+		const messages: AiChatMessage[] = [
+			{ role: 'system', content: PROGRAM_SYSTEM_PROMPT },
+			{ role: 'user', content: buildProfileMessage(profile) }
+		];
+
+		const response = await this.requestReplyWithRetry(messages, { responseFormat: 'json' });
+
+		let parsed: unknown;
 		try {
-			return await this.aiClient.chat(messages);
+			parsed = JSON.parse(response.content);
+		} catch {
+			logger.warn({ raw: response.content }, 'deepseek program response is not valid JSON');
+			throw new InvalidAiResponseError();
+		}
+
+		const result = generatedProgramSchema.safeParse(parsed);
+		if (!result.success) {
+			logger.warn(
+				{ raw: response.content, issues: result.error.issues },
+				'deepseek program response failed schema validation'
+			);
+			throw new InvalidAiResponseError();
+		}
+
+		return this.saveGeneratedProgram(userId, result.data);
+	}
+
+	private async saveGeneratedProgram(
+		userId: number,
+		program: GeneratedProgram
+	): Promise<WorkoutProgram> {
+		const exercisesToInsert: NewProgramExercise[] = [];
+
+		for (const day of program.days) {
+			let orderIndex = 0;
+			for (const exercise of day.exercises) {
+				const exerciseRow = await this.exerciseRepository.findOrCreateByName(exercise.exerciseName);
+				exercisesToInsert.push({
+					exerciseId: exerciseRow.id,
+					dayIndex: day.dayIndex,
+					orderIndex: orderIndex++,
+					sets: exercise.sets,
+					reps: exercise.reps,
+					restSeconds: exercise.restSeconds
+				});
+			}
+		}
+
+		return this.programRepository.create(userId, program.title, 'ai_generated', exercisesToInsert);
+	}
+
+	private async requestReplyWithRetry(messages: AiChatMessage[], options?: AiChatOptions) {
+		try {
+			return await this.aiClient.chat(messages, options);
 		} catch (error) {
 			if (!isRetryable(error)) {
 				logger.warn({ error }, 'deepseek request failed, not retryable');
@@ -81,7 +171,7 @@ export class AiTrainerService {
 			await sleep(RETRY_DELAY_MS);
 
 			try {
-				return await this.aiClient.chat(messages);
+				return await this.aiClient.chat(messages, options);
 			} catch (retryError) {
 				logger.warn({ error: retryError }, 'deepseek request failed after one retry');
 				throw new AiTrainerError();
