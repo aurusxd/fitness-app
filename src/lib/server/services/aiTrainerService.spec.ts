@@ -1,20 +1,10 @@
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { beforeEach, describe, expect, it } from 'vitest';
-import * as schema from '../db/schema';
-import { ChatMessageRepository } from '../repositories/chatMessageRepository';
+import { createTestDb } from '../db/createTestDb';
 import { users } from '../db/schema';
+import { ChatMessageRepository } from '../repositories/chatMessageRepository';
 import type { AiChatMessage, AiClient, AiResponse } from '../external/deepseekClient';
 import { DeepseekApiError } from '../external/deepseekClient';
 import { AiTrainerError, AiTrainerService, RateLimitExceededError } from './aiTrainerService';
-
-function createTestDb() {
-	const sqlite = new Database(':memory:');
-	const db = drizzle(sqlite, { schema });
-	migrate(db, { migrationsFolder: 'drizzle' });
-	return db;
-}
 
 class FakeAiClient implements AiClient {
 	public calls: AiChatMessage[][] = [];
@@ -33,18 +23,18 @@ class FakeAiClient implements AiClient {
 }
 
 describe('AiTrainerService', () => {
-	let db: ReturnType<typeof createTestDb>;
 	let chatMessageRepository: ChatMessageRepository;
 	let userId: number;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		const db = await createTestDb();
 		chatMessageRepository = new ChatMessageRepository(db);
-		userId = db
+		const row = await db
 			.insert(users)
 			.values({ telegramId: '1', createdAt: new Date() })
 			.returning()
-			.get().id;
+			.get();
+		userId = row.id;
 	});
 
 	it('persists the user message and the assistant reply, returning the reply', async () => {
@@ -56,7 +46,7 @@ describe('AiTrainerService', () => {
 		expect(reply.role).toBe('assistant');
 		expect(reply.content).toBe('Great, let’s get moving!');
 
-		const history = service.history(userId);
+		const history = await service.history(userId);
 		expect(history.map((m) => [m.role, m.content])).toEqual([
 			['user', 'I feel tired today'],
 			['assistant', 'Great, let’s get moving!']
@@ -100,7 +90,7 @@ describe('AiTrainerService', () => {
 
 	it('rejects with RateLimitExceededError past 30 messages in the last hour', async () => {
 		for (let i = 0; i < 30; i++) {
-			chatMessageRepository.append(userId, 'user', `msg ${i}`);
+			await chatMessageRepository.append(userId, 'user', `msg ${i}`);
 		}
 
 		const aiClient = new FakeAiClient({ content: 'should not be called' });

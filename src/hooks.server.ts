@@ -27,7 +27,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	const userRepository = new UserRepository();
-	event.locals.user = userRepository.findOrCreateByTelegram(parsed.telegramId, parsed.username);
+	event.locals.user = await userRepository.findOrCreateByTelegram(
+		parsed.telegramId,
+		parsed.username
+	);
 
 	return resolve(event);
 };

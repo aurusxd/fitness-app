@@ -34,8 +34,6 @@ const baseExercises = [
 	{ name: 'Jump Rope', muscleGroup: 'cardio', equipment: 'jump rope' }
 ];
 
-for (const exercise of baseExercises) {
-	db.insert(exercises).values(exercise).run();
-}
+await db.insert(exercises).values(baseExercises);
 
 console.log(`Seeded ${baseExercises.length} exercises`);

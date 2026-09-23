@@ -36,20 +36,24 @@ export class AiTrainerService {
 		private readonly chatMessageRepository: ChatMessageRepository = new ChatMessageRepository()
 	) {}
 
-	history(userId: number, limit = HISTORY_LIMIT): ChatMessageDto[] {
-		return this.chatMessageRepository.recentHistory(userId, limit).map(toChatMessageDto);
+	async history(userId: number, limit = HISTORY_LIMIT): Promise<ChatMessageDto[]> {
+		const rows = await this.chatMessageRepository.recentHistory(userId, limit);
+		return rows.map(toChatMessageDto);
 	}
 
 	async sendMessage(userId: number, content: string): Promise<ChatMessageDto> {
 		const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-		const sentThisHour = this.chatMessageRepository.countUserMessagesSince(userId, oneHourAgo);
+		const sentThisHour = await this.chatMessageRepository.countUserMessagesSince(
+			userId,
+			oneHourAgo
+		);
 		if (sentThisHour >= RATE_LIMIT_PER_HOUR) {
 			throw new RateLimitExceededError();
 		}
 
-		this.chatMessageRepository.append(userId, 'user', content);
+		await this.chatMessageRepository.append(userId, 'user', content);
 
-		const history = this.chatMessageRepository.recentHistory(userId, HISTORY_LIMIT);
+		const history = await this.chatMessageRepository.recentHistory(userId, HISTORY_LIMIT);
 		const messages: AiChatMessage[] = history.map((row) => ({
 			role: row.role,
 			content: row.content
@@ -57,7 +61,11 @@ export class AiTrainerService {
 
 		const reply = await this.requestReplyWithRetry(messages);
 
-		const assistantRow = this.chatMessageRepository.append(userId, 'assistant', reply.content);
+		const assistantRow = await this.chatMessageRepository.append(
+			userId,
+			'assistant',
+			reply.content
+		);
 		return toChatMessageDto(assistantRow);
 	}
 

@@ -18,7 +18,7 @@ export function toChatMessageDto(row: ChatMessageRow): ChatMessageDto {
 export class ChatMessageRepository {
 	constructor(private readonly database = db) {}
 
-	append(userId: number, role: ChatMessageRole, content: string): ChatMessageRow {
+	async append(userId: number, role: ChatMessageRole, content: string): Promise<ChatMessageRow> {
 		return this.database
 			.insert(aiChatMessages)
 			.values({ userId, role, content, createdAt: new Date() })
@@ -27,8 +27,8 @@ export class ChatMessageRepository {
 	}
 
 	/** Most recent messages for a user, oldest first, limited to `limit`. */
-	recentHistory(userId: number, limit: number): ChatMessageRow[] {
-		const rows = this.database
+	async recentHistory(userId: number, limit: number): Promise<ChatMessageRow[]> {
+		const rows = await this.database
 			.select()
 			.from(aiChatMessages)
 			.where(eq(aiChatMessages.userId, userId))
@@ -39,8 +39,8 @@ export class ChatMessageRepository {
 		return rows.reverse();
 	}
 
-	countUserMessagesSince(userId: number, since: Date): number {
-		const row = this.database
+	async countUserMessagesSince(userId: number, since: Date): Promise<number> {
+		const row = await this.database
 			.select({ count: sql<number>`count(*)` })
 			.from(aiChatMessages)
 			.where(

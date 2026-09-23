@@ -2,6 +2,8 @@
 
 > Единый источник истины. Версионируется, меняется только append-only. Любая сессия Claude Code подчиняется этому файлу дословно и не выдумывает контракты, типы, поля схемы. Не хватает контракта — стоп, зафиксировать блок `CONTRACT GAP` внизу файла (см. раздел «Процесс работы с пробелами в контракте»), не писать код с выдуманным типом.
 
+**v3 — 2026-09-23** — деплой на Vercel вместо self-hosted Docker: `adapter-vercel` вместо `adapter-node`, БД — libSQL/Turso вместо `better-sqlite3` (раздел 2, 11). Решение пользователя, см. обоснование в разделе 11.
+
 **v2 — 2026-09-23** — добавлен контракт транспорта `initData` (раздел 6).
 
 **v1 — 2026-09-22** — начальная версия ядра.
@@ -24,10 +26,10 @@ Telegram Mini App, фитнес-приложение по образцу FitStar
 
 ## 2. Стек
 
-- **SvelteKit** (fullstack, `adapter-node`), TypeScript.
-- **Drizzle ORM** + **SQLite** (`better-sqlite3` в проде, файл БД монтируется как volume в Docker).
+- **SvelteKit** (fullstack, `adapter-vercel`, v3), TypeScript.
+- **Drizzle ORM** + **libSQL/Turso** (`@libsql/client` + `drizzle-orm/libsql`, v3). Локально — файловый режим (`file:./data/app.db`, без сервера), в проде — удалённая Turso-БД (`DATABASE_URL` = `libsql://...`, `DATABASE_AUTH_TOKEN`). Драйвер асинхронный — весь доступ к БД в репозиториях/сервисах через `await`.
 - **DeepSeek API** (`https://api.deepseek.com`, модель `deepseek-chat`) — единственный LLM-провайдер ИИ-тренера.
-- **Docker** — единый `Dockerfile` + `docker-compose.yml`, volume под SQLite-файл и логи.
+- **Деплой** — Vercel (serverless functions), v3. Docker/`docker-compose` не используются в проде.
 - Логи — структурированные (JSON), через `pino`. Уровни: `error`, `warn`, `info`, `debug`. В проде — `info` и выше.
 - **svelte-check** — обязателен в DoD каждой задачи.
 - Валидация — **zod**, схемы переиспользуются на клиенте и сервере (DRY, единый источник правды для форм и API).
@@ -219,11 +221,11 @@ PR/коммит без тестов на слайс не считается за
 
 ## 11. Инфраструктура
 
-- **Миграции** — `drizzle-kit generate` из `schema.ts`, применяются на старте контейнера (`migrate.ts` перед стартом сервера) или отдельным шагом в `docker-compose`.
+- **Миграции** — `drizzle-kit generate` из `schema.ts`, применяются через `migrate.ts` (`npm run db:migrate:apply`) вручную/в CI перед деплоем на Vercel, против удалённой Turso-БД (v3). `migrate.ts`/`seed.ts` асинхронные (`await migrate(...)`, `await db.insert(...)`).
 - **Сид-скрипт** (`lib/server/db/seed.ts`) — базовый набор упражнений (20-30 штук) для локальной разработки и тестового окружения.
-- **Конфиг-модуль** (`lib/server/config.ts`) — единая точка чтения env, с проверкой обязательных переменных на старте (упасть сразу, если `DEEPSEEK_API_KEY` или `TELEGRAM_BOT_TOKEN` не заданы).
-- `.env.example`: `DEEPSEEK_API_KEY=`, `TELEGRAM_BOT_TOKEN=`, `DATABASE_URL=file:./data/app.db`, `NODE_ENV=`.
-- **Docker**: `Dockerfile` — multi-stage (build + node runtime), `docker-compose.yml` — volume под `./data` (SQLite-файл) и `./logs`.
+- **Конфиг-модуль** (`lib/server/config.ts`) — единая точка чтения env (через `process.env`, с `dotenv/config` для локального запуска вне SvelteKit, напр. `migrate.ts`), с проверкой обязательных переменных на старте (упасть сразу, если `DEEPSEEK_API_KEY` или `TELEGRAM_BOT_TOKEN` не заданы). `DATABASE_AUTH_TOKEN` опционален (не нужен для локального файлового режима).
+- `.env.example`: `DEEPSEEK_API_KEY=`, `TELEGRAM_BOT_TOKEN=`, `DATABASE_URL=file:./data/app.db`, `DATABASE_AUTH_TOKEN=`, `NODE_ENV=`.
+- **Деплой (v3)** — Vercel, `adapter-vercel`. Env-переменные (`DEEPSEEK_API_KEY`, `TELEGRAM_BOT_TOKEN`, `DATABASE_URL`, `DATABASE_AUTH_TOKEN`) задаются в настройках проекта Vercel. Прод-БД — Turso (`DATABASE_URL=libsql://<db>.turso.io`). Docker/`docker-compose` не используются: serverless-окружение Vercel не запускает произвольные контейнеры, а SQLite-файл на диске не переживает между вызовами функций.
 
 ## 12. Коммиты, PR, комментарии
 

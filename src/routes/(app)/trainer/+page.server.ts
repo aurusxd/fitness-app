@@ -6,9 +6,9 @@ import {
 
 const HISTORY_LIMIT = 20;
 
-export const load: PageServerLoad = ({ locals }) => {
+export const load: PageServerLoad = async ({ locals }) => {
 	const chatMessageRepository = new ChatMessageRepository();
-	const history = chatMessageRepository.recentHistory(locals.user.id, HISTORY_LIMIT);
+	const history = await chatMessageRepository.recentHistory(locals.user.id, HISTORY_LIMIT);
 
 	return {
 		messages: history.map(toChatMessageDto)

@@ -6,13 +6,17 @@ import { User } from '../domain/user';
 export class UserRepository {
 	constructor(private readonly database = db) {}
 
-	findByTelegramId(telegramId: string): User | null {
-		const row = this.database.select().from(users).where(eq(users.telegramId, telegramId)).get();
+	async findByTelegramId(telegramId: string): Promise<User | null> {
+		const row = await this.database
+			.select()
+			.from(users)
+			.where(eq(users.telegramId, telegramId))
+			.get();
 		return row ? new User(row) : null;
 	}
 
-	private createFromTelegram(telegramId: string, username: string | null): User {
-		const row = this.database
+	private async createFromTelegram(telegramId: string, username: string | null): Promise<User> {
+		const row = await this.database
 			.insert(users)
 			.values({ telegramId, username, createdAt: new Date() })
 			.returning()
@@ -20,8 +24,8 @@ export class UserRepository {
 		return new User(row);
 	}
 
-	findOrCreateByTelegram(telegramId: string, username: string | null): User {
-		const existing = this.findByTelegramId(telegramId);
+	async findOrCreateByTelegram(telegramId: string, username: string | null): Promise<User> {
+		const existing = await this.findByTelegramId(telegramId);
 		if (existing) return existing;
 		return this.createFromTelegram(telegramId, username);
 	}
