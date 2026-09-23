@@ -34,7 +34,9 @@ export default defineConfig({
 						DEEPSEEK_API_KEY: 'test-deepseek-key',
 						TELEGRAM_BOT_TOKEN: 'test-bot-token',
 						DATABASE_URL: ':memory:',
-						NODE_ENV: 'test'
+						NODE_ENV: 'test',
+						// Pinned empty so a developer's local .env cannot switch the auth bypass on under test.
+						DEV_TELEGRAM_ID: ''
 					}
 				}
 			}

@@ -2,6 +2,8 @@
 
 > Единый источник истины. Версионируется, меняется только append-only. Любая сессия Claude Code подчиняется этому файлу дословно и не выдумывает контракты, типы, поля схемы. Не хватает контракта — стоп, зафиксировать блок `CONTRACT GAP` внизу файла (см. раздел «Процесс работы с пробелами в контракте»), не писать код с выдуманным типом.
 
+**v5 — 2026-09-23** — dev-обход авторизации через `DEV_TELEGRAM_ID` для локального просмотра вне Telegram (раздел 6, 11).
+
 **v4 — 2026-09-23** — стадия 2: генерация программы ИИ. Зафиксирован дефолт `muscleGroup` для упражнений, созданных из ответа ИИ (раздел 4/5, см. `CONTRACT GAP` внизу файла).
 
 **v3 — 2026-09-23** — деплой на Vercel вместо self-hosted Docker: `adapter-vercel` вместо `adapter-node`, БД — libSQL/Turso вместо `better-sqlite3` (раздел 2, 11). Решение пользователя, см. обоснование в разделе 11.
@@ -181,6 +183,7 @@ export const aiChatMessages = sqliteTable('ai_chat_messages', {
 - Из валидного `initData` достаётся `telegramId`, по нему находится/создаётся запись в `users` (через `userRepository`, не инлайн-SQL в хуке).
 - Клиенту никогда не доверять полям профиля из `initData` кроме `telegramId`/`username` — остальное (роль, права) только из БД.
 - **Транспорт (v2).** Клиент передаёт сырую строку `initData` в заголовке `Authorization: tma <initData>` (официальная схема Telegram Mini Apps). `hooks.server.ts` читает заголовок, при отсутствии или неверном префиксе — 401.
+- **Dev-обход (v5).** Вне Telegram `initData` не существует, поэтому при `NODE_ENV !== 'production'` **и** заданном `DEV_TELEGRAM_ID` хук подставляет фиксированную личность (`telegramId = DEV_TELEGRAM_ID`, `username = 'dev'`) и логирует это на уровне `warn`. В проде обход выключен жёстко, по `NODE_ENV`.
 
 ## 7. Общие типы (`lib/types/index.ts`)
 
@@ -226,7 +229,7 @@ PR/коммит без тестов на слайс не считается за
 - **Миграции** — `drizzle-kit generate` из `schema.ts`, применяются через `migrate.ts` (`npm run db:migrate:apply`) вручную/в CI перед деплоем на Vercel, против удалённой Turso-БД (v3). `migrate.ts`/`seed.ts` асинхронные (`await migrate(...)`, `await db.insert(...)`).
 - **Сид-скрипт** (`lib/server/db/seed.ts`) — базовый набор упражнений (20-30 штук) для локальной разработки и тестового окружения.
 - **Конфиг-модуль** (`lib/server/config.ts`) — единая точка чтения env (через `process.env`, с `dotenv/config` для локального запуска вне SvelteKit, напр. `migrate.ts`), с проверкой обязательных переменных на старте (упасть сразу, если `DEEPSEEK_API_KEY` или `TELEGRAM_BOT_TOKEN` не заданы). `DATABASE_AUTH_TOKEN` опционален (не нужен для локального файлового режима).
-- `.env.example`: `DEEPSEEK_API_KEY=`, `TELEGRAM_BOT_TOKEN=`, `DATABASE_URL=file:./data/app.db`, `DATABASE_AUTH_TOKEN=`, `NODE_ENV=`.
+- `.env.example`: `DEEPSEEK_API_KEY=`, `TELEGRAM_BOT_TOKEN=`, `DATABASE_URL=file:./data/app.db`, `DATABASE_AUTH_TOKEN=`, `NODE_ENV=`, `DEV_TELEGRAM_ID=` (последняя — только для локального просмотра вне Telegram, в проде не задаётся).
 - **Деплой (v3)** — Vercel, `adapter-vercel`. Env-переменные (`DEEPSEEK_API_KEY`, `TELEGRAM_BOT_TOKEN`, `DATABASE_URL`, `DATABASE_AUTH_TOKEN`) задаются в настройках проекта Vercel. Прод-БД — Turso (`DATABASE_URL=libsql://<db>.turso.io`). Docker/`docker-compose` не используются: serverless-окружение Vercel не запускает произвольные контейнеры, а SQLite-файл на диске не переживает между вызовами функций.
 
 ## 12. Коммиты, PR, комментарии

@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import type { RequestEvent } from '@sveltejs/kit';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { User } from '$lib/server/domain/user';
 
 const BOT_TOKEN = 'test-bot-token';
@@ -95,5 +95,43 @@ describe('hooks.server handle', () => {
 		expect(response.status).toBe(200);
 		expect(findOrCreateByTelegram).toHaveBeenCalledWith('42', 'olivia');
 		expect(event.locals.user.telegramId).toBe('42');
+	});
+
+	describe('DEV_TELEGRAM_ID fallback', () => {
+		afterEach(() => {
+			vi.unstubAllEnvs();
+			vi.resetModules();
+		});
+
+		it('grants access without initData when DEV_TELEGRAM_ID is set outside production', async () => {
+			vi.stubEnv('DEV_TELEGRAM_ID', '7');
+			vi.resetModules();
+			const { handle } = await import('./hooks.server');
+			const resolve = vi.fn().mockResolvedValue(new Response('ok'));
+
+			const response = await handle({
+				event: makeEvent('/(app)/trainer', '/trainer', null),
+				resolve
+			});
+
+			expect(response.status).toBe(200);
+			expect(findOrCreateByTelegram).toHaveBeenCalledWith('7', 'dev');
+		});
+
+		it('keeps rejecting requests in production even when DEV_TELEGRAM_ID is set', async () => {
+			vi.stubEnv('DEV_TELEGRAM_ID', '7');
+			vi.stubEnv('NODE_ENV', 'production');
+			vi.resetModules();
+			const { handle } = await import('./hooks.server');
+			const resolve = vi.fn();
+
+			const response = await handle({
+				event: makeEvent('/(app)/trainer', '/trainer', null),
+				resolve
+			});
+
+			expect(response.status).toBe(401);
+			expect(resolve).not.toHaveBeenCalled();
+		});
 	});
 });
