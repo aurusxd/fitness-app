@@ -15,6 +15,13 @@
       "when": 1790257876246,
       "tag": "0001_translate_exercises_to_russian",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790258256067,
+      "tag": "0002_translate_ai_created_exercises",
+      "breakpoints": true
     }
   ]
 }
