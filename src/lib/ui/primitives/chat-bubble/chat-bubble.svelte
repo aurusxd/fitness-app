@@ -1,17 +1,36 @@
 <script lang="ts">
 	import type { HTMLAttributes } from 'svelte/elements';
+	import { CoachAvatar } from '$lib/ui/primitives/coach-avatar';
 	import { cn } from '$lib/utils';
 
 	type Props = HTMLAttributes<HTMLDivElement> & {
 		role: 'user' | 'assistant';
+		/** The coach is still composing this reply. */
+		thinking?: boolean;
+		/** Plays the entrance: for messages that arrive while the chat is open, not loaded history. */
+		fresh?: boolean;
 	};
 
-	let { role, class: className, children, ...restProps }: Props = $props();
+	let {
+		role,
+		thinking = false,
+		fresh = false,
+		class: className,
+		children,
+		...restProps
+	}: Props = $props();
 </script>
 
-<div class={cn('flex items-end gap-2.5', role === 'user' && 'justify-end')} {...restProps}>
+<div
+	class={cn(
+		'flex items-end gap-2.5',
+		role === 'user' ? 'origin-bottom-right justify-end' : 'origin-bottom-left',
+		fresh && 'motion-rise'
+	)}
+	{...restProps}
+>
 	{#if role === 'assistant'}
-		<div class="size-6.5 shrink-0 rounded-full border-2 border-primary/30 border-t-primary"></div>
+		<CoachAvatar {thinking} />
 	{/if}
 	<div
 		class={cn(

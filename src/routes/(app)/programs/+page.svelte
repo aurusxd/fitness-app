@@ -4,6 +4,8 @@
 	import { Card, CardHeader, CardTitle, CardDescription } from '$lib/ui/primitives/card';
 	import { Badge } from '$lib/ui/primitives/badge';
 	import { Button } from '$lib/ui/primitives/button';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import { requestProgram } from '$lib/client/programs';
 	import type { WorkoutProgramDto } from '$lib/types';
 	import { plural } from '$lib/utils';
@@ -36,12 +38,17 @@
 	<div class="flex items-center justify-between">
 		<h1 class="font-display text-lg font-bold">Мои программы</h1>
 		<Button onclick={generateProgram} disabled={generating}>
+			{#if generating}
+				<LoaderCircleIcon class="motion-safe:animate-spin" />
+			{:else}
+				<SparklesIcon />
+			{/if}
 			{generating ? 'Собираю…' : 'Собрать программу'}
 		</Button>
 	</div>
 
 	{#if errorMessage}
-		<p class="text-sm text-destructive">{errorMessage}</p>
+		<p class="motion-fade text-sm text-destructive">{errorMessage}</p>
 	{/if}
 
 	{#if programs.length === 0}

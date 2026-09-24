@@ -6,6 +6,7 @@
 	import { Button } from '$lib/ui/primitives/button';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { cn, GOAL_LABELS, muscleGroupLabel, plural } from '$lib/utils';
 	import type { PageData } from './$types';
 
@@ -179,11 +180,15 @@
 						полуминуты.
 					</p>
 					<Button onclick={buildProgram} disabled={generating}>
-						<SparklesIcon />
+						{#if generating}
+							<LoaderCircleIcon class="motion-safe:animate-spin" />
+						{:else}
+							<SparklesIcon />
+						{/if}
 						{generating ? 'Собираю программу…' : 'Собрать программу'}
 					</Button>
 					{#if generationError}
-						<p class="m-0 text-destructive">{generationError}</p>
+						<p class="motion-fade m-0 text-destructive">{generationError}</p>
 					{/if}
 				{:else}
 					<p class="m-0">

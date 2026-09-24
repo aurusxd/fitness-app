@@ -11,6 +11,6 @@
 
 <DialogPrimitive.Overlay
 	bind:ref
-	class={cn('fixed inset-0 z-50 bg-black/70 backdrop-blur-sm', className)}
+	class={cn('modal-overlay fixed inset-0 z-50 bg-black/70 backdrop-blur-sm', className)}
 	{...restProps}
 />

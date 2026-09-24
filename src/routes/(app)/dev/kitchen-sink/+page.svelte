@@ -24,6 +24,7 @@
 		ModalClose
 	} from '$lib/ui/primitives/modal';
 	import { ChatBubble } from '$lib/ui/primitives/chat-bubble';
+	import { CoachAvatar } from '$lib/ui/primitives/coach-avatar';
 </script>
 
 <div class="mx-auto flex max-w-2xl flex-col gap-10 px-6 py-10">
@@ -119,6 +120,17 @@
 			<ChatBubble role="assistant">
 				Perfect. Here's a 5-minute express session you can squeeze in anywhere.
 			</ChatBubble>
+			<ChatBubble role="assistant" thinking>
+				<span class="text-muted-foreground">Думаю над ответом…</span>
+			</ChatBubble>
+		</div>
+	</section>
+
+	<section class="flex flex-col gap-3">
+		<h2 class="font-display text-sm font-bold text-muted-foreground uppercase">Coach avatar</h2>
+		<div class="flex items-center gap-4 p-1.5">
+			<CoachAvatar />
+			<CoachAvatar thinking />
 		</div>
 	</section>
 </div>

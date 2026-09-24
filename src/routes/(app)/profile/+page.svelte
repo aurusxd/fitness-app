@@ -118,7 +118,7 @@
 					>{saving ? 'Сохраняю…' : 'Сохранить профиль'}</Button
 				>
 				{#if savedAt}
-					<span class="text-xs text-primary">Сохранено</span>
+					<span class="motion-fade text-xs text-primary">Сохранено</span>
 				{/if}
 			</div>
 		</CardContent>

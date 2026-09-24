@@ -95,7 +95,7 @@ test.describe('critical paths', () => {
 		expect(composerBox!.y + composerBox!.height).toBeLessThanOrEqual(tabBarBox!.y);
 
 		await composer.fill('How should I train today?');
-		await page.getByRole('button', { name: '→' }).click();
+		await page.getByRole('button', { name: 'Отправить' }).click();
 
 		const reply = page.getByText('Хорошо, сегодня начнём спокойно.');
 		await expect(reply).toBeVisible();
@@ -133,7 +133,7 @@ test.describe('critical paths', () => {
 		await page.goto('/trainer');
 
 		await page.getByPlaceholder('Спроси тренера…').fill('Тренируюсь дома, есть только гантели');
-		await page.getByRole('button', { name: '→' }).click();
+		await page.getByRole('button', { name: 'Отправить' }).click();
 		await expect(page.getByText('Хорошо, сегодня начнём спокойно.').last()).toBeVisible();
 
 		await page.getByRole('button', { name: 'Собрать программу' }).click();
@@ -144,5 +144,41 @@ test.describe('critical paths', () => {
 		const contents = sent.messages.map((message: { content: string }) => message.content);
 		expect(contents).toContain('Тренируюсь дома, есть только гантели');
 		expect(contents.at(-1)).toContain('Goal: lose');
+	});
+
+	test('the coach shows it is working on a reply until the reply lands', async ({ page }) => {
+		// A slow answer, so the in-between state is long enough to see.
+		await page.route('**/api/trainer', async (route) => {
+			await new Promise((resolve) => setTimeout(resolve, 800));
+			await route.continue();
+		});
+		await page.goto('/trainer');
+
+		await page.getByPlaceholder('Спроси тренера…').fill('Сколько отдыхать между подходами?');
+		await page.getByRole('button', { name: 'Отправить' }).click();
+
+		await expect(page.getByRole('status')).toHaveText('Думаю над ответом…');
+		await expect(page.locator('.coach-orbit')).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Отправить' })).toBeDisabled();
+
+		await expect(page.getByRole('status')).toHaveCount(0);
+		await expect(page.locator('.coach-orbit')).toHaveCount(0);
+	});
+
+	test('a tapped tab lights up before its screen has loaded', async ({ page }) => {
+		await page.goto('/home');
+		await page.route('**/log/__data.json*', async (route) => {
+			await new Promise((resolve) => setTimeout(resolve, 1500));
+			await route.continue();
+		});
+
+		const logTab = page.getByRole('link', { name: 'Журнал' });
+		await logTab.click();
+
+		// Still on the old screen, but the tap is already acknowledged.
+		await expect(logTab).toHaveAttribute('aria-current', 'page');
+		expect(new URL(page.url()).pathname).toBe('/home');
+
+		await expect(page).toHaveURL(/\/log$/);
 	});
 });
