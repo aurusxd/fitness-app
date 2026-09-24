@@ -14,6 +14,20 @@ export interface ExerciseFilter {
 	search?: string;
 }
 
+/**
+ * The AI annotates names it considers risky for the athlete ("Goblet Squat (light, pain-free)").
+ * Prompting alone does not stop it, and the annotation is a coaching note rather than part of the
+ * movement's name, so it is stripped before the name reaches the library.
+ */
+export function canonicalExerciseName(name: string): string {
+	const stripped = name
+		.replace(/\([^)]*\)/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
+
+	return stripped || name.trim();
+}
+
 export class ExerciseRepository {
 	constructor(private readonly database = db) {}
 
@@ -36,9 +50,10 @@ export class ExerciseRepository {
 	}
 
 	async findOrCreateByName(name: string): Promise<ExerciseRow> {
-		const existing = await this.findByNormalizedName(name);
+		const canonical = canonicalExerciseName(name);
+		const existing = await this.findByNormalizedName(canonical);
 		if (existing) return existing;
-		return this.create(name);
+		return this.create(canonical);
 	}
 
 	async findById(id: number): Promise<Exercise | null> {

@@ -38,6 +38,22 @@ describe('ExerciseRepository', () => {
 		it('returns null from findByNormalizedName when nothing matches', async () => {
 			expect(await repository.findByNormalizedName('unknown exercise')).toBeNull();
 		});
+
+		it('drops the coaching note the AI appends, so the library keeps one entry per movement', async () => {
+			const plain = await repository.findOrCreateByName('Goblet Squat');
+			const annotated = await repository.findOrCreateByName(
+				'Goblet Squat (limited range, pain-free)'
+			);
+
+			expect(annotated.id).toBe(plain.id);
+			expect(annotated.name).toBe('Goblet Squat');
+		});
+
+		it('stores an annotated name without its note when the movement is new', async () => {
+			const created = await repository.findOrCreateByName('Leg Press (pain-free range, light)');
+
+			expect(created.name).toBe('Leg Press');
+		});
 	});
 
 	describe('library listing', () => {

@@ -190,6 +190,26 @@ describe('AiTrainerService', () => {
 			expect(savedPrograms).toHaveLength(0);
 		});
 
+		it('shows the model the existing library so it reuses names instead of inventing synonyms', async () => {
+			await exerciseRepository.findOrCreateByName('Bicep Curl');
+			const aiClient = new FakeAiClient({ content: VALID_PROGRAM_JSON });
+			const service = makeService(aiClient);
+
+			await service.generateProgram(userId, PROFILE);
+
+			const prompt = aiClient.calls[0].map((message) => message.content).join('\n');
+			expect(prompt).toContain('Bicep Curl');
+		});
+
+		it('tells the model to keep exercise names free of notes, which would fragment the library', async () => {
+			const aiClient = new FakeAiClient({ content: VALID_PROGRAM_JSON });
+			const service = makeService(aiClient);
+
+			await service.generateProgram(userId, PROFILE);
+
+			expect(aiClient.calls[0][0].content).toContain('No parentheses');
+		});
+
 		it('requests a JSON-mode response from the AiClient', async () => {
 			const aiClient = new FakeAiClient({ content: VALID_PROGRAM_JSON });
 			let capturedOptions: unknown;

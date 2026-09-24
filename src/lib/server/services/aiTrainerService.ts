@@ -16,8 +16,16 @@ const HISTORY_LIMIT = 20;
 const RATE_LIMIT_PER_HOUR = 30;
 const RETRY_DELAY_MS = 1000;
 
+/** Exercise names are matched against the library by exact name, so noisy names create duplicates. */
 const PROGRAM_SYSTEM_PROMPT = `You are a certified fitness trainer. Generate a workout program as strict JSON only, with no markdown and no commentary, matching exactly this shape:
-{"title": string, "days": [{"dayIndex": number (0-6), "exercises": [{"exerciseName": string, "sets": number, "reps": string, "restSeconds": number}]}]}`;
+{"title": string, "days": [{"dayIndex": number (0-6), "exercises": [{"exerciseName": string, "sets": number, "reps": string, "restSeconds": number}]}]}
+
+Rules for exerciseName:
+- Use the plain, canonical name of the movement only: "Goblet Squat", never "Goblet Squat (light, pain-free)".
+- No parentheses, no notes, no coaching cues, no equipment qualifiers beyond the standard name.
+- Express adjustments for the athlete's limits by choosing a safer movement, not by annotating the name.`;
+
+const LIBRARY_PROMPT_LIMIT = 120;
 
 export interface ProfileForGeneration {
 	goal: 'gain' | 'lose' | 'maintain';
@@ -108,8 +116,21 @@ export class AiTrainerService {
 
 	/** Generates a structured workout program from the user's profile and persists it, or rejects without saving anything (tech.md §5). */
 	async generateProgram(userId: number, profile: ProfileForGeneration): Promise<WorkoutProgram> {
+		// Showing the model what the library already holds keeps it from inventing synonyms
+		// like "Dumbbell Biceps Curl" for an exercise stored as "Bicep Curl".
+		const known = await this.exerciseRepository.list();
+		const knownNames = known.slice(0, LIBRARY_PROMPT_LIMIT).map((exercise) => exercise.name);
+
 		const messages: AiChatMessage[] = [
 			{ role: 'system', content: PROGRAM_SYSTEM_PROMPT },
+			...(knownNames.length > 0
+				? [
+						{
+							role: 'system' as const,
+							content: `Reuse these exact names whenever the movement matches one of them: ${knownNames.join(', ')}.`
+						}
+					]
+				: []),
 			{ role: 'user', content: buildProfileMessage(profile) }
 		];
 
