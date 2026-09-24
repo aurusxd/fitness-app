@@ -14,7 +14,12 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter({ runtime: 'nodejs22.x' }),
+			adapter: adapter({
+				runtime: 'nodejs22.x',
+				// Next to the Turso database (aws-ap-south-1). From the default iad1 every query
+				// crossed the globe, and a single tab switch makes several of them in a row.
+				regions: ['bom1']
+			}),
 			typescript: {
 				config: (config) => {
 					config.include.push('../drizzle.config.ts');
