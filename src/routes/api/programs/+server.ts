@@ -32,7 +32,7 @@ export const POST: RequestHandler = async ({ locals }) => {
 		return json({ program: toWorkoutProgramDto(program) }, { status: 201 });
 	} catch (error) {
 		if (error instanceof InvalidAiResponseError || error instanceof AiTrainerError) {
-			logger.error({ error }, 'program generation failed');
+			logger.error({ err: error }, 'program generation failed');
 			return json({ error: error.message }, { status: 502 });
 		}
 		throw error;

@@ -195,7 +195,7 @@ export class AiTrainerService {
 			return await this.aiClient.chat(messages, options);
 		} catch (error) {
 			if (!isRetryable(error)) {
-				logger.warn({ error }, 'deepseek request failed, not retryable');
+				logger.warn({ err: error }, 'deepseek request failed, not retryable');
 				throw new AiTrainerError();
 			}
 
@@ -204,7 +204,7 @@ export class AiTrainerService {
 			try {
 				return await this.aiClient.chat(messages, options);
 			} catch (retryError) {
-				logger.warn({ error: retryError }, 'deepseek request failed after one retry');
+				logger.warn({ err: retryError }, 'deepseek request failed after one retry');
 				throw new AiTrainerError();
 			}
 		}

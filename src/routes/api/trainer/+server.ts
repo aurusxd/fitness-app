@@ -29,7 +29,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ error: error.message }, { status: 429 });
 		}
 		if (error instanceof AiTrainerError) {
-			logger.error({ error }, 'ai trainer request failed');
+			logger.error({ err: error }, 'ai trainer request failed');
 			return json({ error: error.message }, { status: 502 });
 		}
 		throw error;
