@@ -128,4 +128,21 @@ test.describe('critical paths', () => {
 			await expect(page.getByRole('heading', { name: 'Программа похудения E2E' })).toBeVisible();
 		}
 	);
+
+	test('the program is built from what the athlete told the coach', async ({ page, request }) => {
+		await page.goto('/trainer');
+
+		await page.getByPlaceholder('Спроси тренера…').fill('Тренируюсь дома, есть только гантели');
+		await page.getByRole('button', { name: '→' }).click();
+		await expect(page.getByText('Хорошо, сегодня начнём спокойно.').last()).toBeVisible();
+
+		await page.getByRole('button', { name: 'Собрать программу' }).click();
+		await expect(page).toHaveURL(/\/programs\/\d+$/);
+
+		// The only way to know the conversation shaped the program is to look at what reached the model.
+		const sent = await (await request.get('http://localhost:5174/__last-program-request')).json();
+		const contents = sent.messages.map((message: { content: string }) => message.content);
+		expect(contents).toContain('Тренируюсь дома, есть только гантели');
+		expect(contents.at(-1)).toContain('Goal: lose');
+	});
 });

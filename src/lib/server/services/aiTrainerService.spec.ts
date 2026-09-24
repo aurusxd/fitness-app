@@ -140,6 +140,44 @@ describe('AiTrainerService', () => {
 	});
 
 	describe('generateProgram', () => {
+		it('builds the program from what the athlete told the coach as well as the profile', async () => {
+			await chatMessageRepository.append(userId, 'user', 'Тренируюсь дома, есть только гантели');
+			await chatMessageRepository.append(userId, 'assistant', 'Понял, соберу под гантели.');
+			const aiClient = new FakeAiClient({ content: VALID_PROGRAM_JSON });
+			const service = makeService(aiClient);
+
+			await service.generateProgram(userId, PROFILE);
+
+			const conversation = aiClient.calls[0].filter((message) => message.role !== 'system');
+			expect(conversation.slice(0, 2)).toEqual([
+				{ role: 'user', content: 'Тренируюсь дома, есть только гантели' },
+				{ role: 'assistant', content: 'Понял, соберу под гантели.' }
+			]);
+
+			// The profile closes the request, so it is the last word on goal and level.
+			const request = conversation.at(-1)!;
+			expect(request.role).toBe('user');
+			expect(request.content).toContain('Goal: lose');
+			expect(request.content).toContain('Level: beginner');
+		});
+
+		it('sends only the most recent 20 messages of the conversation', async () => {
+			for (let index = 1; index <= 25; index++) {
+				await chatMessageRepository.append(userId, 'user', `message ${index}`);
+			}
+			const aiClient = new FakeAiClient({ content: VALID_PROGRAM_JSON });
+			const service = makeService(aiClient);
+
+			await service.generateProgram(userId, PROFILE);
+
+			const sent = aiClient.calls[0]
+				.map((message) => message.content)
+				.filter((content) => content.startsWith('message '));
+			expect(sent).toHaveLength(20);
+			expect(sent[0]).toBe('message 6');
+			expect(sent.at(-1)).toBe('message 25');
+		});
+
 		it('parses a valid JSON response, matches/creates exercises and saves the program', async () => {
 			const aiClient = new FakeAiClient({ content: VALID_PROGRAM_JSON });
 			const service = makeService(aiClient);

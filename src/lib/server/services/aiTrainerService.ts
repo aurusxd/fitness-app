@@ -25,7 +25,9 @@ Rules for exerciseName:
 - No parentheses, no notes, no coaching cues, no equipment qualifiers beyond the standard name.
 - Express adjustments for the athlete's limits by choosing a safer movement, not by annotating the name.
 
-The "title" field is shown to the athlete, so write it in Russian too.`;
+The "title" field is shown to the athlete, so write it in Russian too.
+
+The athlete's goal and level come from their saved profile, given in the last message. The conversation before it is what they told their coach: take into account everything in it that shapes a program - available equipment, training days per week, session length, injuries and pain, exercises they like or want to avoid. Limits from the conversation add to the profile's constraints. If the conversation contradicts the profile's goal or level, follow the profile.`;
 
 /** Without one the model mirrors the language of the last message, and the app is Russian (tech.md §5). */
 const CHAT_SYSTEM_PROMPT = `Ты — сертифицированный фитнес-тренер в мобильном приложении. Всегда отвечай по-русски, на «ты», коротко и по делу — один-два абзаца, без markdown-разметки и списков.
@@ -131,6 +133,9 @@ export class AiTrainerService {
 		const known = await this.exerciseRepository.list();
 		const knownNames = known.slice(0, LIBRARY_PROMPT_LIMIT).map((exercise) => exercise.name);
 
+		// What the athlete told the coach is half of what the program is built from (tech.md §1, §5).
+		const history = await this.chatMessageRepository.recentHistory(userId, HISTORY_LIMIT);
+
 		const messages: AiChatMessage[] = [
 			{ role: 'system', content: PROGRAM_SYSTEM_PROMPT },
 			...(knownNames.length > 0
@@ -141,7 +146,8 @@ export class AiTrainerService {
 						}
 					]
 				: []),
-			{ role: 'user', content: buildProfileMessage(profile) }
+			...history.map((row) => ({ role: row.role, content: row.content })),
+			{ role: 'user', content: `Build my program now. ${buildProfileMessage(profile)}` }
 		];
 
 		const response = await this.requestReplyWithRetry(messages, { responseFormat: 'json' });

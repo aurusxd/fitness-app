@@ -22,11 +22,21 @@ const PROGRAM = {
 	]
 };
 
+/** The last program request, so a test can check what the app actually sent to the model. */
+let lastProgramRequest = null;
+
 function reply(content) {
 	return JSON.stringify({ choices: [{ message: { role: 'assistant', content } }] });
 }
 
 const server = createServer((request, response) => {
+	if (request.method === 'GET' && request.url === '/__last-program-request') {
+		response
+			.writeHead(200, { 'Content-Type': 'application/json' })
+			.end(JSON.stringify(lastProgramRequest));
+		return;
+	}
+
 	if (request.method !== 'POST' || !request.url?.endsWith('/chat/completions')) {
 		response.writeHead(404).end();
 		return;
@@ -43,6 +53,7 @@ const server = createServer((request, response) => {
 		}
 
 		const wantsJson = payload.response_format?.type === 'json_object';
+		if (wantsJson) lastProgramRequest = payload;
 		const content = wantsJson ? JSON.stringify(PROGRAM) : 'Хорошо, сегодня начнём спокойно.';
 
 		response.writeHead(200, { 'Content-Type': 'application/json' }).end(reply(content));

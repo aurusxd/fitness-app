@@ -1,5 +1,9 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import SparklesIcon from '@lucide/svelte/icons/sparkles';
+	import { requestProgram } from '$lib/client/programs';
 	import { ChatBubble } from '$lib/ui/primitives/chat-bubble';
 	import { Input } from '$lib/ui/primitives/input';
 	import { Button } from '$lib/ui/primitives/button';
@@ -14,6 +18,22 @@
 	let sending = $state(false);
 	let errorMessage = $state<string | null>(null);
 	let thread = $state<HTMLDivElement | null>(null);
+	let generating = $state(false);
+
+	/** The program is built from this conversation plus the profile, so it is offered right here. */
+	async function buildProgram() {
+		generating = true;
+		errorMessage = null;
+
+		const result = await requestProgram();
+		if ('error' in result) {
+			errorMessage = result.error;
+			generating = false;
+			return;
+		}
+
+		await goto(resolve('/(app)/programs/[id]', { id: String(result.program.id) }));
+	}
 
 	/** The newest message is the one worth reading, and it lands below the fold as the thread grows. */
 	async function scrollToLatest(): Promise<void> {
@@ -64,12 +84,19 @@
 </script>
 
 <div class="mx-auto flex h-[calc(100dvh-7rem)] max-w-2xl flex-col px-6 py-6">
-	<h1 class="mb-6 font-display text-lg font-bold">ИИ-тренер</h1>
+	<div class="mb-6 flex items-center justify-between gap-3">
+		<h1 class="font-display text-lg font-bold">ИИ-тренер</h1>
+		<Button size="sm" onclick={buildProgram} disabled={generating || sending}>
+			<SparklesIcon />
+			{generating ? 'Собираю…' : 'Собрать программу'}
+		</Button>
+	</div>
 
 	<div bind:this={thread} class="flex flex-1 flex-col gap-4 overflow-y-auto pb-4">
 		{#if messages.length === 0}
 			<p class="text-center text-sm text-muted-foreground">
-				Привет! Расскажи, как ты себя чувствуешь сегодня, и я помогу спланировать тренировку.
+				Привет! Расскажи, где тренируешься, какой есть инвентарь, сколько раз в неделю готов
+				заниматься и что беспокоит — учту это, когда буду собирать программу.
 			</p>
 		{/if}
 		{#each messages as message (message.id)}
