@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, isNull, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull, type SQL } from 'drizzle-orm';
 import { db } from '../db/client';
 import { exercises } from '../db/schema';
 import { Exercise, UNSPECIFIED_MUSCLE_GROUP, type ExerciseRow } from '../domain/exercise';
@@ -28,17 +28,24 @@ export function canonicalExerciseName(name: string): string {
 	return stripped || name.trim();
 }
 
+/**
+ * SQLite's `lower()` folds ASCII only, so «Приседания» and «приседания» compare as different
+ * strings and the library would collect a row per capitalisation the model happens to use.
+ * Matching therefore happens in JS over the library table, which is a curated few hundred rows;
+ * a stored normalised column with an index is the answer if it ever outgrows that.
+ */
+function normalizedName(name: string): string {
+	return name.trim().toLowerCase();
+}
+
 export class ExerciseRepository {
 	constructor(private readonly database = db) {}
 
 	async findByNormalizedName(name: string): Promise<ExerciseRow | null> {
-		const normalized = name.trim().toLowerCase();
-		const row = await this.database
-			.select()
-			.from(exercises)
-			.where(sql`lower(trim(${exercises.name})) = ${normalized}`)
-			.get();
-		return row ?? null;
+		const normalized = normalizedName(name);
+		const rows = await this.database.select().from(exercises).all();
+
+		return rows.find((row) => normalizedName(row.name) === normalized) ?? null;
 	}
 
 	private async create(name: string): Promise<ExerciseRow> {
@@ -74,11 +81,6 @@ export class ExerciseRepository {
 			conditions.push(eq(exercises.equipment, filter.equipment));
 		}
 
-		const search = filter.search?.trim().toLowerCase();
-		if (search) {
-			conditions.push(sql`lower(${exercises.name}) like ${`%${search}%`}`);
-		}
-
 		const rows = await this.database
 			.select()
 			.from(exercises)
@@ -86,7 +88,10 @@ export class ExerciseRepository {
 			.orderBy(asc(exercises.name))
 			.all();
 
-		return rows.map((row) => new Exercise(row));
+		const search = filter.search ? normalizedName(filter.search) : undefined;
+		const matched = search ? rows.filter((row) => normalizedName(row.name).includes(search)) : rows;
+
+		return matched.map((row) => new Exercise(row));
 	}
 
 	async distinctMuscleGroups(): Promise<string[]> {

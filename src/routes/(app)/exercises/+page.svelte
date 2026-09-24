@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Input } from '$lib/ui/primitives/input';
 	import { Badge } from '$lib/ui/primitives/badge';
-	import { plural } from '$lib/utils';
+	import { muscleGroupLabel, plural } from '$lib/utils';
 	import EditExerciseModal from './EditExerciseModal.svelte';
 	import type { ExerciseDto } from '$lib/types';
 	import type { PageData } from './$types';
@@ -34,7 +34,9 @@
 			>
 				<option value="">Все группы мышц</option>
 				{#each data.muscleGroups as group (group)}
-					<option value={group} selected={data.filter.muscleGroup === group}>{group}</option>
+					<option value={group} selected={data.filter.muscleGroup === group}>
+						{muscleGroupLabel(group)}
+					</option>
 				{/each}
 			</select>
 
@@ -72,7 +74,7 @@
 				<div class="min-w-0 flex-1">
 					<div class="truncate text-sm font-bold">{exercise.name}</div>
 					<div class="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-						<span class="truncate">{exercise.muscleGroup}</span>
+						<span class="truncate">{muscleGroupLabel(exercise.muscleGroup)}</span>
 						<span>·</span>
 						<span class="truncate">{exercise.isBodyweight ? 'свой вес' : exercise.equipment}</span>
 					</div>

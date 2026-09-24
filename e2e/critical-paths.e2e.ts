@@ -31,36 +31,36 @@ test.describe('critical paths', () => {
 		await page.getByRole('button', { name: 'Собрать программу' }).click();
 
 		const { program } = await (await saved).json();
-		expect(program.title).toBe('E2E Fat Loss Plan');
+		expect(program.title).toBe('Программа похудения E2E');
 
 		// The app redirects here itself, but the dev server compiles this route on first visit,
 		// which can abort that client-side navigation. A full load waits for the compile instead.
 		await page.goto(`/programs/${program.id}`);
 
-		await expect(page.getByRole('heading', { name: 'E2E Fat Loss Plan' })).toBeVisible();
-		await expect(page.getByText('Bodyweight Squat')).toBeVisible();
-		await expect(page.getByText('Face Pull')).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Программа похудения E2E' })).toBeVisible();
+		await expect(page.getByText('Приседания без веса')).toBeVisible();
+		await expect(page.getByText('Тяга к лицу')).toBeVisible();
 
 		// Two days in the mocked response, mapped to their weekday names.
 		await expect(page.getByRole('heading', { name: 'Пн' })).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Ср' })).toBeVisible();
 
 		await page.goto('/programs');
-		await expect(page.getByText('E2E Fat Loss Plan')).toBeVisible();
+		await expect(page.getByText('Программа похудения E2E')).toBeVisible();
 	});
 
 	test('an exercise the AI introduced is flagged for categorising in the library', async ({
 		page
 	}) => {
-		await page.goto('/exercises?search=face');
+		await page.goto('/exercises?search=лицу');
 
-		await expect(page.getByText('Face Pull')).toBeVisible();
+		await expect(page.getByText('Тяга к лицу')).toBeVisible();
 		await expect(page.getByText('Нужна категория')).toBeVisible();
 	});
 
 	test('a completed set is logged and shows up in the workout log', async ({ page }) => {
 		await page.goto('/programs');
-		await page.getByText('E2E Fat Loss Plan').click();
+		await page.getByText('Программа похудения E2E').click();
 
 		await page.getByRole('button', { name: 'Отметить' }).first().click();
 
@@ -74,8 +74,8 @@ test.describe('critical paths', () => {
 		await expect(page.getByText('Сделано 4 × 10 · 20 кг')).toBeVisible();
 
 		await page.goto('/log');
-		await expect(page.getByText('Bodyweight Squat')).toBeVisible();
-		await expect(page.getByText('E2E Fat Loss Plan')).toBeVisible();
+		await expect(page.getByText('Приседания без веса')).toBeVisible();
+		await expect(page.getByText('Программа похудения E2E')).toBeVisible();
 		await expect(page.getByText('4 × 10 · 20 кг')).toBeVisible();
 	});
 
@@ -96,7 +96,7 @@ test.describe('critical paths', () => {
 		await composer.fill('How should I train today?');
 		await page.getByRole('button', { name: '→' }).click();
 
-		const reply = page.getByText('Sounds good. Let us start easy today.');
+		const reply = page.getByText('Хорошо, сегодня начнём спокойно.');
 		await expect(reply).toBeVisible();
 		const replyBox = await reply.boundingBox();
 		expect(replyBox!.y + replyBox!.height).toBeLessThanOrEqual(composerBox!.y);

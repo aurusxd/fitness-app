@@ -35,6 +35,14 @@ describe('ExerciseRepository', () => {
 			expect(second.id).toBe(first.id);
 		});
 
+		it('matches a Russian name whatever case the model writes it in', async () => {
+			const created = await repository.findOrCreateByName('Приседания со штангой');
+
+			const second = await repository.findOrCreateByName('приседания СО ШТАНГОЙ');
+
+			expect(second.id).toBe(created.id);
+		});
+
 		it('returns null from findByNormalizedName when nothing matches', async () => {
 			expect(await repository.findByNormalizedName('unknown exercise')).toBeNull();
 		});
@@ -100,6 +108,14 @@ describe('ExerciseRepository', () => {
 			const list = await repository.list({ search: 'squat' });
 
 			expect(list.map((exercise) => exercise.name)).toEqual(['Barbell Squat', 'Bodyweight Squat']);
+		});
+
+		it('searches a Russian name typed in lower case, which SQLite cannot fold itself', async () => {
+			await db.insert(exercises).values({ name: 'Становая тяга', muscleGroup: 'back' });
+
+			const list = await repository.list({ search: 'становая' });
+
+			expect(list.map((exercise) => exercise.name)).toEqual(['Становая тяга']);
 		});
 
 		it('combines filters', async () => {

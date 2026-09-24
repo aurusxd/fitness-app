@@ -21,15 +21,15 @@ const PROGRAM_SYSTEM_PROMPT = `You are a certified fitness trainer. Generate a w
 {"title": string, "days": [{"dayIndex": number (0-6), "exercises": [{"exerciseName": string, "sets": number, "reps": string, "restSeconds": number}]}]}
 
 Rules for exerciseName:
-- Use the plain, canonical name of the movement only: "Goblet Squat", never "Goblet Squat (light, pain-free)".
+- Write it in Russian, as the plain canonical name of the movement: "Приседания со штангой", never "Приседания со штангой (лёгкие, без боли)".
 - No parentheses, no notes, no coaching cues, no equipment qualifiers beyond the standard name.
 - Express adjustments for the athlete's limits by choosing a safer movement, not by annotating the name.
 
-The "title" field is shown to the athlete, so write it in Russian. Exercise names stay English.`;
+The "title" field is shown to the athlete, so write it in Russian too.`;
 
 /** Without one the model mirrors the language of the last message, and the app is Russian (tech.md §5). */
 const CHAT_SYSTEM_PROMPT = `Ты — сертифицированный фитнес-тренер в мобильном приложении. Всегда отвечай по-русски, на «ты», коротко и по делу — один-два абзаца, без markdown-разметки и списков.
-Названия упражнений пиши по-английски, как они заведены в библиотеке (например, Goblet Squat), остальное — по-русски.
+Названия упражнений пиши по-русски, общепринятыми названиями (например, «Приседания со штангой»).
 Не ставь диагнозов и не давай медицинских рекомендаций: при боли советуй обратиться к врачу.`;
 
 const LIBRARY_PROMPT_LIMIT = 120;

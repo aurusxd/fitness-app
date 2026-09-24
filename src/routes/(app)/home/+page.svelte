@@ -4,7 +4,7 @@
 	import { Button } from '$lib/ui/primitives/button';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
-	import { cn, GOAL_LABELS, plural } from '$lib/utils';
+	import { cn, GOAL_LABELS, muscleGroupLabel, plural } from '$lib/utils';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -177,7 +177,9 @@
 						href="{resolve('/(app)/exercises')}?muscleGroup={encodeURIComponent(group)}"
 						class="flex-1 rounded-[var(--radius-md)] border border-border bg-card px-3.5 py-4 text-center"
 					>
-						<span class="text-xs font-semibold text-muted-foreground">{group}</span>
+						<span class="text-xs font-semibold text-muted-foreground"
+							>{muscleGroupLabel(group)}</span
+						>
 					</a>
 				{/each}
 			</div>

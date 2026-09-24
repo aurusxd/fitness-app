@@ -8,6 +8,13 @@
       "when": 1790131709947,
       "tag": "0000_robust_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1790257876246,
+      "tag": "0001_translate_exercises_to_russian",
+      "breakpoints": true
     }
   ]
 }

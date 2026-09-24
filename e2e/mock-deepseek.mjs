@@ -4,20 +4,20 @@ const PORT = Number(process.env.MOCK_DEEPSEEK_PORT ?? 5174);
 
 /** Mirrors the JSON contract the trainer asks for in tech.md §5. */
 const PROGRAM = {
-	title: 'E2E Fat Loss Plan',
+	title: 'Программа похудения E2E',
 	days: [
 		{
 			dayIndex: 0,
 			exercises: [
 				// Already in the seed, so this exercises the name-matching path.
-				{ exerciseName: 'Bodyweight Squat', sets: 3, reps: '12-15', restSeconds: 60 },
+				{ exerciseName: 'Приседания без веса', sets: 3, reps: '12-15', restSeconds: 60 },
 				// Not in the seed, so this exercises the auto-creation path.
-				{ exerciseName: 'Face Pull', sets: 3, reps: '15', restSeconds: 45 }
+				{ exerciseName: 'Тяга к лицу', sets: 3, reps: '15', restSeconds: 45 }
 			]
 		},
 		{
 			dayIndex: 2,
-			exercises: [{ exerciseName: 'Plank', sets: 3, reps: '45s', restSeconds: 45 }]
+			exercises: [{ exerciseName: 'Планка', sets: 3, reps: '45 с', restSeconds: 45 }]
 		}
 	]
 };
@@ -43,7 +43,7 @@ const server = createServer((request, response) => {
 		}
 
 		const wantsJson = payload.response_format?.type === 'json_object';
-		const content = wantsJson ? JSON.stringify(PROGRAM) : 'Sounds good. Let us start easy today.';
+		const content = wantsJson ? JSON.stringify(PROGRAM) : 'Хорошо, сегодня начнём спокойно.';
 
 		response.writeHead(200, { 'Content-Type': 'application/json' }).end(reply(content));
 	});

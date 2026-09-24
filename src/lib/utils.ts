@@ -33,3 +33,20 @@ export const LEVEL_LABELS: Record<UserLevel, string> = {
 	intermediate: 'Средний',
 	advanced: 'Продвинутый'
 };
+
+/** Muscle groups stay stable keys in the database, so only their display name is translated. */
+export const MUSCLE_GROUP_LABELS: Record<string, string> = {
+	legs: 'Ноги',
+	back: 'Спина',
+	chest: 'Грудь',
+	shoulders: 'Плечи',
+	arms: 'Руки',
+	core: 'Пресс',
+	full_body: 'Всё тело',
+	cardio: 'Кардио',
+	unspecified: 'Без категории'
+};
+
+export function muscleGroupLabel(group: string): string {
+	return MUSCLE_GROUP_LABELS[group] ?? group;
+}
