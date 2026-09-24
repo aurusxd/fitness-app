@@ -4,6 +4,10 @@ import { validateInitData } from './telegramAuth';
 
 const BOT_TOKEN = '123456:test-bot-token';
 
+function authDate(secondsAgo = 0): string {
+	return String(Math.floor(Date.now() / 1000) - secondsAgo);
+}
+
 function signInitData(params: Record<string, string>, botToken: string): string {
 	const dataCheckString = Object.entries(params)
 		.sort(([a], [b]) => a.localeCompare(b))
@@ -19,7 +23,7 @@ function signInitData(params: Record<string, string>, botToken: string): string 
 describe('validateInitData', () => {
 	it('extracts telegramId and username from a correctly signed initData', () => {
 		const initData = signInitData(
-			{ auth_date: '1700000000', user: JSON.stringify({ id: 42, username: 'olivia' }) },
+			{ auth_date: authDate(), user: JSON.stringify({ id: 42, username: 'olivia' }) },
 			BOT_TOKEN
 		);
 
@@ -30,7 +34,7 @@ describe('validateInitData', () => {
 
 	it('rejects initData signed with a different bot token', () => {
 		const initData = signInitData(
-			{ auth_date: '1700000000', user: JSON.stringify({ id: 42, username: 'olivia' }) },
+			{ auth_date: authDate(), user: JSON.stringify({ id: 42, username: 'olivia' }) },
 			'other-bot-token'
 		);
 
@@ -39,7 +43,7 @@ describe('validateInitData', () => {
 
 	it('rejects tampered initData whose payload no longer matches the hash', () => {
 		const initData = signInitData(
-			{ auth_date: '1700000000', user: JSON.stringify({ id: 42, username: 'olivia' }) },
+			{ auth_date: authDate(), user: JSON.stringify({ id: 42, username: 'olivia' }) },
 			BOT_TOKEN
 		);
 		const tampered = initData.replace('id%22%3A42', 'id%22%3A99');
@@ -48,7 +52,31 @@ describe('validateInitData', () => {
 	});
 
 	it('rejects initData missing the hash field', () => {
-		const initData = new URLSearchParams({ auth_date: '1700000000' }).toString();
+		const initData = new URLSearchParams({ auth_date: authDate() }).toString();
+
+		expect(validateInitData(initData, BOT_TOKEN)).toBeNull();
+	});
+
+	it('accepts a signature from within the last day', () => {
+		const initData = signInitData(
+			{ auth_date: authDate(23 * 60 * 60), user: JSON.stringify({ id: 42 }) },
+			BOT_TOKEN
+		);
+
+		expect(validateInitData(initData, BOT_TOKEN)).toEqual({ telegramId: '42', username: null });
+	});
+
+	it('rejects a correctly signed initData that is older than a day, so a leak cannot be replayed', () => {
+		const initData = signInitData(
+			{ auth_date: authDate(25 * 60 * 60), user: JSON.stringify({ id: 42, username: 'olivia' }) },
+			BOT_TOKEN
+		);
+
+		expect(validateInitData(initData, BOT_TOKEN)).toBeNull();
+	});
+
+	it('rejects initData without auth_date, whose age cannot be judged', () => {
+		const initData = signInitData({ user: JSON.stringify({ id: 42 }) }, BOT_TOKEN);
 
 		expect(validateInitData(initData, BOT_TOKEN)).toBeNull();
 	});

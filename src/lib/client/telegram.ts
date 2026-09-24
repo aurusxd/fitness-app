@@ -38,3 +38,19 @@ export function authFetch(input: string, init: RequestInit = {}): Promise<Respon
 	}
 	return fetch(input, { ...init, headers });
 }
+
+/**
+ * Exchanges the Telegram signature for a session cookie, the only credential a document request
+ * (opening the app, switching tabs, an SSR `load`) can carry. Resolves false outside Telegram.
+ */
+export async function signIn(): Promise<boolean> {
+	const initData = getTelegramInitData();
+	if (!initData) return false;
+
+	const response = await fetch('/api/auth', {
+		method: 'POST',
+		headers: { Authorization: `tma ${initData}` }
+	});
+
+	return response.ok;
+}

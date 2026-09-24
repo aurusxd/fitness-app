@@ -26,8 +26,10 @@ export default defineConfig({
 				DATABASE_URL: 'file:./data/e2e.db',
 				DEEPSEEK_API_KEY: 'e2e-key',
 				DEEPSEEK_BASE_URL: `http://localhost:${MOCK_DEEPSEEK_PORT}`,
+				// Pinned empty so a developer's local .env cannot switch the auth bypass on: the suite
+				// signs in the way production does, through initData.
+				DEV_TELEGRAM_ID: '',
 				TELEGRAM_BOT_TOKEN: 'e2e-bot-token',
-				DEV_TELEGRAM_ID: '999',
 				NODE_ENV: 'development'
 			}
 		}

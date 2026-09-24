@@ -2,11 +2,13 @@ import { createHmac } from 'node:crypto';
 import type { RequestEvent } from '@sveltejs/kit';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { User } from '$lib/server/domain/user';
+import { createSessionCookie, SESSION_COOKIE_NAME } from '$lib/server/session';
 
 const BOT_TOKEN = 'test-bot-token';
 
 function signInitData(params: Record<string, string>): string {
-	const dataCheckString = Object.entries(params)
+	const withAuthDate = { auth_date: String(Math.floor(Date.now() / 1000)), ...params };
+	const dataCheckString = Object.entries(withAuthDate)
 		.sort(([a], [b]) => a.localeCompare(b))
 		.map(([key, value]) => `${key}=${value}`)
 		.join('\n');
@@ -14,7 +16,7 @@ function signInitData(params: Record<string, string>): string {
 	const secretKey = createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
 	const hash = createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
 
-	return new URLSearchParams({ ...params, hash }).toString();
+	return new URLSearchParams({ ...withAuthDate, hash }).toString();
 }
 
 const fakeUser = new User({
@@ -35,13 +37,23 @@ vi.mock('$lib/server/repositories/userRepository', () => ({
 	})
 }));
 
-function makeEvent(routeId: string, pathname: string, authHeader: string | null): RequestEvent {
+interface Credentials {
+	authHeader?: string | null;
+	sessionCookie?: string | null;
+}
+
+function makeEvent(
+	routeId: string,
+	pathname: string,
+	{ authHeader = null, sessionCookie = null }: Credentials = {}
+): RequestEvent {
 	return {
 		route: { id: routeId },
 		url: new URL(`https://example.com${pathname}`),
 		request: new Request(`https://example.com${pathname}`, {
 			headers: authHeader ? { authorization: authHeader } : undefined
 		}),
+		cookies: { get: (name: string) => (name === SESSION_COOKIE_NAME ? sessionCookie : null) },
 		locals: {}
 	} as unknown as RequestEvent;
 }
@@ -51,7 +63,17 @@ describe('hooks.server handle', () => {
 		const { handle } = await import('./hooks.server');
 		const resolve = vi.fn().mockResolvedValue(new Response('ok'));
 
-		const response = await handle({ event: makeEvent('/', '/', null), resolve });
+		const response = await handle({ event: makeEvent('/', '/', {}), resolve });
+
+		expect(resolve).toHaveBeenCalledOnce();
+		expect(response.status).toBe(200);
+	});
+
+	it('lets the sign-in endpoint through, since it is where a session is obtained', async () => {
+		const { handle } = await import('./hooks.server');
+		const resolve = vi.fn().mockResolvedValue(new Response('ok'));
+
+		const response = await handle({ event: makeEvent('/api/auth', '/api/auth', {}), resolve });
 
 		expect(resolve).toHaveBeenCalledOnce();
 		expect(response.status).toBe(200);
@@ -62,7 +84,7 @@ describe('hooks.server handle', () => {
 		const resolve = vi.fn();
 
 		await expect(
-			handle({ event: makeEvent('/(app)/trainer', '/trainer', null), resolve })
+			handle({ event: makeEvent('/(app)/trainer', '/trainer', {}), resolve })
 		).rejects.toMatchObject({
 			status: 401,
 			body: { message: expect.stringContaining('Telegram') }
@@ -75,7 +97,7 @@ describe('hooks.server handle', () => {
 		const resolve = vi.fn();
 
 		const response = await handle({
-			event: makeEvent('/api/trainer', '/api/trainer', null),
+			event: makeEvent('/api/trainer', '/api/trainer', {}),
 			resolve
 		});
 
@@ -87,10 +109,13 @@ describe('hooks.server handle', () => {
 	it('rejects protected routes with an invalid initData signature', async () => {
 		const { handle } = await import('./hooks.server');
 		const resolve = vi.fn();
-		const tampered = signInitData({ user: JSON.stringify({ id: 42 }) }).replace('42', '99');
+		const tampered = signInitData({ user: JSON.stringify({ id: 42 }) }).replace(
+			'id%22%3A42',
+			'id%22%3A99'
+		);
 
 		const response = await handle({
-			event: makeEvent('/api/trainer', '/api/trainer', `tma ${tampered}`),
+			event: makeEvent('/api/trainer', '/api/trainer', { authHeader: `tma ${tampered}` }),
 			resolve
 		});
 
@@ -102,13 +127,45 @@ describe('hooks.server handle', () => {
 		const { handle } = await import('./hooks.server');
 		const resolve = vi.fn().mockResolvedValue(new Response('ok'));
 		const initData = signInitData({ user: JSON.stringify({ id: 42, username: 'olivia' }) });
-		const event = makeEvent('/(app)/trainer', '/trainer', `tma ${initData}`);
+		const event = makeEvent('/(app)/trainer', '/trainer', { authHeader: `tma ${initData}` });
 
 		const response = await handle({ event, resolve });
 
 		expect(response.status).toBe(200);
 		expect(findOrCreateByTelegram).toHaveBeenCalledWith('42', 'olivia');
 		expect(event.locals.user.telegramId).toBe('42');
+	});
+
+	describe('session cookie', () => {
+		it('grants access to a page request that carries only the session cookie', async () => {
+			const { handle } = await import('./hooks.server');
+			const resolve = vi.fn().mockResolvedValue(new Response('ok'));
+			const sessionCookie = createSessionCookie(
+				{ telegramId: '42', username: 'olivia' },
+				BOT_TOKEN
+			);
+			const event = makeEvent('/(app)/trainer', '/trainer', { sessionCookie });
+
+			const response = await handle({ event, resolve });
+
+			expect(response.status).toBe(200);
+			expect(findOrCreateByTelegram).toHaveBeenCalledWith('42', 'olivia');
+			expect(event.locals.user.telegramId).toBe('42');
+		});
+
+		it('rejects a session cookie signed with another bot token', async () => {
+			const { handle } = await import('./hooks.server');
+			const resolve = vi.fn();
+			const sessionCookie = createSessionCookie(
+				{ telegramId: '42', username: 'olivia' },
+				'other-bot-token'
+			);
+
+			await expect(
+				handle({ event: makeEvent('/(app)/trainer', '/trainer', { sessionCookie }), resolve })
+			).rejects.toMatchObject({ status: 401 });
+			expect(resolve).not.toHaveBeenCalled();
+		});
 	});
 
 	describe('DEV_TELEGRAM_ID fallback', () => {
@@ -124,7 +181,7 @@ describe('hooks.server handle', () => {
 			const resolve = vi.fn().mockResolvedValue(new Response('ok'));
 
 			const response = await handle({
-				event: makeEvent('/(app)/trainer', '/trainer', null),
+				event: makeEvent('/(app)/trainer', '/trainer', {}),
 				resolve
 			});
 
@@ -140,7 +197,7 @@ describe('hooks.server handle', () => {
 			const resolve = vi.fn();
 
 			await expect(
-				handle({ event: makeEvent('/(app)/trainer', '/trainer', null), resolve })
+				handle({ event: makeEvent('/(app)/trainer', '/trainer', {}), resolve })
 			).rejects.toMatchObject({ status: 401 });
 			expect(resolve).not.toHaveBeenCalled();
 		});

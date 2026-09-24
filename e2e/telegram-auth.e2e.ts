@@ -1,35 +1,24 @@
-import { createHmac } from 'node:crypto';
-import { expect, test } from './fixtures';
-
-const BOT_TOKEN = 'e2e-bot-token';
-
-function signInitData(params: Record<string, string>): string {
-	const dataCheckString = Object.entries(params)
-		.sort(([a], [b]) => a.localeCompare(b))
-		.map(([key, value]) => `${key}=${value}`)
-		.join('\n');
-
-	const secretKey = createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
-	const hash = createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-
-	return new URLSearchParams({ ...params, hash }).toString();
-}
-
-const INIT_DATA = signInitData({
-	auth_date: '1700000000',
-	user: JSON.stringify({ id: 777, username: 'tg_user' })
-});
+import { anonymousTest, expect, test } from './fixtures';
+import { INIT_DATA } from './telegram';
 
 test.describe('telegram integration', () => {
+	test('opening the app signs the athlete in and lands them in the app shell', async ({ page }) => {
+		// The fixture already ran the bootstrap; this asserts where it left the athlete.
+		await expect(page).toHaveURL(/\/home$/);
+		await expect(page.getByRole('heading', { name: 'This week' })).toBeVisible();
+	});
+
+	test('keeps the session across a full page load, which carries no Authorization header', async ({
+		page
+	}) => {
+		await page.goto('/profile');
+
+		await expect(page.getByRole('button', { name: 'Save profile' })).toBeVisible();
+	});
+
 	test('sends the signed initData from the Telegram SDK as an Authorization header', async ({
 		page
 	}) => {
-		await page.addInitScript((initData) => {
-			window.Telegram = {
-				WebApp: { initData, ready: () => {}, expand: () => {} }
-			};
-		}, INIT_DATA);
-
 		await page.goto('/profile');
 
 		// Selecting only takes effect once the page is interactive, so confirm it before saving.
@@ -57,5 +46,21 @@ test.describe('telegram integration', () => {
 			.evaluateAll((scripts) => scripts.map((script) => script.getAttribute('src')));
 
 		expect(sources).toContain('https://telegram.org/js/telegram-web-app.js');
+	});
+
+	anonymousTest(
+		'turns away a visitor with no Telegram session instead of serving the app',
+		async ({ page }) => {
+			const response = await page.goto('/profile');
+
+			expect(response?.status()).toBe(401);
+			await expect(page.getByText('Open this app from your Telegram bot')).toBeVisible();
+		}
+	);
+
+	anonymousTest('refuses to hand out a session without a signature', async ({ request }) => {
+		const response = await request.post('/api/auth');
+
+		expect(response.status()).toBe(401);
 	});
 });

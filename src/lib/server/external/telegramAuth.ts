@@ -11,6 +11,12 @@ interface TelegramInitDataUser {
 }
 
 /**
+ * A signature stays valid forever unless its age is checked, and `POST /api/auth` accepts it from
+ * anyone, so a leaked initData string would be replayable indefinitely.
+ */
+const MAX_AGE_SECONDS = 24 * 60 * 60;
+
+/**
  * Validates Telegram Mini App `initData` per the official signature scheme:
  * https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
  */
@@ -31,6 +37,11 @@ export function validateInitData(initData: string, botToken: string): TelegramIn
 	const hashBuffer = Buffer.from(hash, 'hex');
 	const computedBuffer = Buffer.from(computedHash, 'hex');
 	if (hashBuffer.length !== computedBuffer.length || !timingSafeEqual(hashBuffer, computedBuffer)) {
+		return null;
+	}
+
+	const authDate = Number(params.get('auth_date'));
+	if (!Number.isFinite(authDate) || Date.now() / 1000 - authDate > MAX_AGE_SECONDS) {
 		return null;
 	}
 
