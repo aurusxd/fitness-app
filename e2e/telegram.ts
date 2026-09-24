@@ -16,16 +16,21 @@ function signInitData(params: Record<string, string>): string {
 }
 
 /** Signed per run: the server rejects a signature older than a day. */
-export const INIT_DATA = signInitData({
-	auth_date: String(Math.floor(Date.now() / 1000)),
-	user: JSON.stringify({ id: 777, username: 'tg_user' })
-});
+export function initDataFor(user: { id: number; username: string }): string {
+	return signInitData({
+		auth_date: String(Math.floor(Date.now() / 1000)),
+		user: JSON.stringify(user)
+	});
+}
+
+/** The athlete most of the suite runs as; its state builds up across the serial critical paths. */
+export const INIT_DATA = initDataFor({ id: 777, username: 'tg_user' });
 
 /** Stands in for the Telegram client, the only thing that defines `window.Telegram`. */
-export async function installTelegramStub(page: Page): Promise<void> {
-	await page.addInitScript((initData) => {
-		window.Telegram = { WebApp: { initData, ready: () => {}, expand: () => {} } };
-	}, INIT_DATA);
+export async function installTelegramStub(page: Page, initData = INIT_DATA): Promise<void> {
+	await page.addInitScript((signed) => {
+		window.Telegram = { WebApp: { initData: signed, ready: () => {}, expand: () => {} } };
+	}, initData);
 }
 
 /** Runs the same bootstrap a real Mini App does: initData in, session cookie out. */

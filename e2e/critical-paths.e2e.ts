@@ -1,4 +1,5 @@
-import { expect, test } from './fixtures';
+import { anonymousTest, expect, test } from './fixtures';
+import { initDataFor, installTelegramStub, signIn } from './telegram';
 
 // The paths build on each other: a profile unlocks generation, and a program is what you log against.
 test.describe.configure({ mode: 'serial' });
@@ -101,4 +102,30 @@ test.describe('critical paths', () => {
 		const replyBox = await reply.boundingBox();
 		expect(replyBox!.y + replyBox!.height).toBeLessThanOrEqual(composerBox!.y);
 	});
+
+	anonymousTest(
+		'a new athlete builds their first program straight from the home screen',
+		async ({ page }) => {
+			// A fresh athlete: the shared one already has programs, so its home shows none of this.
+			await installTelegramStub(page, initDataFor({ id: 888, username: 'newcomer' }));
+			await signIn(page);
+
+			// Without a goal and level there is nothing to build from, so home sends them to the profile.
+			await page.getByRole('link', { name: 'Заполнить профиль' }).click();
+			await expect(page).toHaveURL(/\/profile$/);
+
+			const goal = page.getByRole('button', { name: 'Похудение' });
+			await goal.click();
+			await expect(goal).toHaveClass(/bg-primary/);
+			await page.getByRole('button', { name: 'Новичок' }).click();
+			await page.getByRole('button', { name: 'Сохранить профиль' }).click();
+			await expect(page.getByText('Сохранено')).toBeVisible();
+
+			await page.goto('/home');
+			await page.getByRole('button', { name: 'Собрать программу' }).click();
+
+			await expect(page).toHaveURL(/\/programs\/\d+$/);
+			await expect(page.getByRole('heading', { name: 'Программа похудения E2E' })).toBeVisible();
+		}
+	);
 });

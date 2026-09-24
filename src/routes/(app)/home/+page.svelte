@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { requestProgram } from '$lib/client/programs';
 	import { Badge } from '$lib/ui/primitives/badge';
 	import { Button } from '$lib/ui/primitives/button';
 	import SearchIcon from '@lucide/svelte/icons/search';
@@ -8,6 +10,24 @@
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+
+	let generating = $state(false);
+	let generationError = $state<string | null>(null);
+
+	async function buildProgram() {
+		generating = true;
+		generationError = null;
+
+		const result = await requestProgram();
+		if ('error' in result) {
+			generationError = result.error;
+			generating = false;
+			return;
+		}
+
+		// Stays in the busy state until the program screen replaces this one.
+		await goto(resolve('/(app)/programs/[id]', { id: String(result.program.id) }));
+	}
 
 	const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 	const today = new Date().toISOString().slice(0, 10);
@@ -33,7 +53,7 @@
 			return 'Расскажи тренеру о цели и уровне — он соберёт программу под них.';
 		}
 		if (data.programCount === 0) {
-			return 'Программы пока нет. Попроси ИИ-тренера собрать её под твою цель.';
+			return 'Программы пока нет. Собери первую ниже — тренер подберёт её под твою цель и уровень.';
 		}
 		if (data.week.trainingDays === 0) {
 			return 'На этой неделе пока пусто. Одной тренировки хватит, чтобы начать серию.';
@@ -153,8 +173,25 @@
 			<div
 				class="flex flex-col items-start gap-3 rounded-3xl border border-border bg-card p-5 text-sm text-muted-foreground"
 			>
-				<p class="m-0">Программ пока нет.</p>
-				<Button href={resolve('/(app)/trainer')}>Спросить ИИ-тренера</Button>
+				{#if data.profile.isComplete}
+					<p class="m-0">
+						Программ пока нет. ИИ-тренер соберёт первую по твоему профилю — это займёт до
+						полуминуты.
+					</p>
+					<Button onclick={buildProgram} disabled={generating}>
+						<SparklesIcon />
+						{generating ? 'Собираю программу…' : 'Собрать программу'}
+					</Button>
+					{#if generationError}
+						<p class="m-0 text-destructive">{generationError}</p>
+					{/if}
+				{:else}
+					<p class="m-0">
+						Программ пока нет. Сначала заполни профиль — по цели и уровню тренер подбирает
+						упражнения.
+					</p>
+					<Button href={resolve('/(app)/profile')}>Заполнить профиль</Button>
+				{/if}
 			</div>
 		{/if}
 

@@ -4,7 +4,7 @@
 	import { Card, CardHeader, CardTitle, CardDescription } from '$lib/ui/primitives/card';
 	import { Badge } from '$lib/ui/primitives/badge';
 	import { Button } from '$lib/ui/primitives/button';
-	import { authFetch } from '$lib/client/telegram';
+	import { requestProgram } from '$lib/client/programs';
 	import type { WorkoutProgramDto } from '$lib/types';
 	import { plural } from '$lib/utils';
 	import type { PageData } from './$types';
@@ -18,23 +18,17 @@
 	async function generateProgram() {
 		generating = true;
 		errorMessage = null;
-		try {
-			const response = await authFetch('/api/programs', { method: 'POST' });
-			const body = await response.json();
 
-			if (!response.ok) {
-				errorMessage = body.error ?? 'Что-то пошло не так.';
-				return;
-			}
-
-			const program = body.program as WorkoutProgramDto;
-			programs = [program, ...programs];
-			await goto(resolve('/(app)/programs/[id]', { id: String(program.id) }));
-		} catch {
-			errorMessage = 'Ошибка сети. Попробуй ещё раз.';
-		} finally {
+		const result = await requestProgram();
+		if ('error' in result) {
+			errorMessage = result.error;
 			generating = false;
+			return;
 		}
+
+		programs = [result.program, ...programs];
+		await goto(resolve('/(app)/programs/[id]', { id: String(result.program.id) }));
+		generating = false;
 	}
 </script>
 
