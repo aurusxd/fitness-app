@@ -30,27 +30,91 @@
 	}
 
 	const days = $derived(groupByDay(data.entries));
+
+	const chart = $derived.by(() => {
+		const points = data.summary.perDay;
+		const peak = Math.max(1, ...points.map((point) => point.sets));
+		const width = 300;
+		const height = 90;
+		const step = points.length > 1 ? width / (points.length - 1) : 0;
+
+		return {
+			peak,
+			width,
+			height,
+			polyline: points
+				.map((point, index) => `${index * step},${height - (point.sets / peak) * height}`)
+				.join(' '),
+			firstLabel: points[0]?.date.slice(5),
+			lastLabel: points.at(-1)?.date.slice(5)
+		};
+	});
 </script>
 
 <div class="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-6">
 	<h1 class="font-display text-lg font-bold">Workout Log</h1>
 
-	<div class="flex gap-3">
+	<div class="flex gap-2.5">
 		<Card class="flex-1">
 			<CardContent class="p-4 text-center">
-				<div class="font-display text-2xl font-extrabold">{data.entries.length}</div>
-				<div class="text-xs font-semibold text-muted-foreground">Sets logged</div>
+				<div class="font-display text-xl font-extrabold">{data.summary.exercisesLogged}</div>
+				<div class="mt-0.5 text-[11px] font-semibold text-muted-foreground">Exercises</div>
 			</CardContent>
 		</Card>
 		<Card class="flex-1 border-primary bg-primary">
 			<CardContent class="p-4 text-center">
-				<div class="font-display text-2xl font-extrabold text-primary-foreground">
-					{days.length}
+				<div class="font-display text-xl font-extrabold text-primary-foreground">
+					{data.summary.setsLogged}
 				</div>
-				<div class="text-xs font-semibold text-primary-foreground/70">Training days</div>
+				<div class="mt-0.5 text-[11px] font-semibold text-primary-foreground/70">Sets</div>
+			</CardContent>
+		</Card>
+		<Card class="flex-1">
+			<CardContent class="p-4 text-center">
+				<div class="font-display text-xl font-extrabold">{data.summary.trainingDays}</div>
+				<div class="mt-0.5 text-[11px] font-semibold text-muted-foreground">Days</div>
 			</CardContent>
 		</Card>
 	</div>
+
+	<Card>
+		<CardContent class="p-4.5">
+			<div class="mb-1 flex items-center justify-between">
+				<span class="text-xs font-semibold text-muted-foreground">Sets per day</span>
+				<span class="rounded-full bg-muted px-2.5 py-1 text-[11.5px] font-semibold">
+					Last 14 days
+				</span>
+			</div>
+			<div class="font-display text-2xl font-extrabold">
+				{data.summary.setsLogged}
+				<span class="text-sm font-semibold text-muted-foreground">sets</span>
+			</div>
+
+			<svg
+				viewBox="0 0 {chart.width} {chart.height}"
+				preserveAspectRatio="none"
+				class="mt-2.5 block h-24 w-full"
+				role="img"
+				aria-label="Sets logged per day over the last 14 days"
+			>
+				<polyline
+					points={chart.polyline}
+					fill="none"
+					stroke="#B6FF3A"
+					stroke-width="2.5"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					vector-effect="non-scaling-stroke"
+				/>
+			</svg>
+
+			<div class="mt-1.5 flex justify-between text-[10.5px] font-semibold text-muted-foreground">
+				<span>{chart.firstLabel}</span>
+				<span>peak {chart.peak}</span>
+				<span>{chart.lastLabel}</span>
+			</div>
+		</CardContent>
+	</Card>
 
 	{#if data.entries.length === 0}
 		<p class="text-center text-sm text-muted-foreground">

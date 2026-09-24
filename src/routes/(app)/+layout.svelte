@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import DumbbellIcon from '@lucide/svelte/icons/dumbbell';
+	import HouseIcon from '@lucide/svelte/icons/house';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import ZapIcon from '@lucide/svelte/icons/zap';
 	import ChartColumnIcon from '@lucide/svelte/icons/chart-column';
@@ -11,7 +11,7 @@
 	let { children } = $props();
 
 	const tabs = [
-		{ href: resolve('/(app)/programs'), label: 'Programs', icon: DumbbellIcon },
+		{ href: resolve('/(app)/home'), label: 'Home', icon: HouseIcon },
 		{ href: resolve('/(app)/exercises'), label: 'Library', icon: SearchIcon },
 		{ href: resolve('/(app)/trainer'), label: 'Coach', icon: ZapIcon, hub: true },
 		{ href: resolve('/(app)/log'), label: 'Log', icon: ChartColumnIcon },

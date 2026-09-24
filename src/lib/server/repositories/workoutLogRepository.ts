@@ -1,4 +1,4 @@
-import { and, desc, eq, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, type SQL } from 'drizzle-orm';
 import type { WorkoutLogDto } from '$lib/types';
 import type { LogWorkoutSetInput } from '$lib/validation/schemas';
 import { db } from '../db/client';
@@ -63,6 +63,15 @@ export class WorkoutLogRepository {
 	async findById(logId: number): Promise<WorkoutLogWithExercise | null> {
 		const row = await this.joinedQuery(eq(workoutLogs.id, logId)).get();
 		return row ?? null;
+	}
+
+	/** Logged entries from `since` onwards, oldest first, for building activity summaries. */
+	async listForUserSince(userId: number, since: Date): Promise<WorkoutLogWithExercise[]> {
+		return this.joinedQuery(
+			and(eq(workoutLogs.userId, userId), gte(workoutLogs.performedAt, since))
+		)
+			.orderBy(asc(workoutLogs.performedAt))
+			.all();
 	}
 
 	/** Logged entries for a user, most recent first, optionally narrowed to one program. */

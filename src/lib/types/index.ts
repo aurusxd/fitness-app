@@ -45,6 +45,19 @@ export interface ExerciseDto {
 	needsCategorisation: boolean;
 }
 
+export interface ActivityDayDto {
+	/** ISO date, `YYYY-MM-DD`. */
+	date: string;
+	sets: number;
+}
+
+export interface WorkoutSummaryDto {
+	trainingDays: number;
+	exercisesLogged: number;
+	setsLogged: number;
+	perDay: ActivityDayDto[];
+}
+
 export interface WorkoutLogDto {
 	id: number;
 	programExerciseId: number;

@@ -4,5 +4,5 @@ import type { PageServerLoad } from './$types';
 
 /** The Mini App opens at the root, so send it straight into the app shell. */
 export const load: PageServerLoad = () => {
-	redirect(307, resolve('/(app)/programs'));
+	redirect(307, resolve('/(app)/home'));
 };

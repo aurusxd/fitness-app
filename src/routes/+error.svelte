@@ -15,6 +15,6 @@
 	<p class="text-center text-sm text-muted-foreground">{message}</p>
 	{#if page.status !== 401}
 		<!-- Every in-app route needs the same sign-in, so on 401 this link would only loop back here. -->
-		<Button href={resolve('/(app)/programs')}>Back to my programs</Button>
+		<Button href={resolve('/(app)/home')}>Back to the app</Button>
 	{/if}
 </div>

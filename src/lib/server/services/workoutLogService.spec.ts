@@ -115,6 +115,53 @@ describe('WorkoutLogService', () => {
 		expect(await service.historyForUser(otherUserId)).toEqual([]);
 	});
 
+	describe('summary', () => {
+		it('counts exercises, sets and distinct training days', async () => {
+			await service.logSet(userId, {
+				programExerciseId: squatExerciseId,
+				setsDone: 4,
+				repsDone: '10'
+			});
+			await service.logSet(userId, {
+				programExerciseId: plankExerciseId,
+				setsDone: 3,
+				repsDone: '45s'
+			});
+
+			const summary = await service.summary(userId, new Date(Date.now() - 24 * 60 * 60 * 1000));
+
+			expect(summary.exercisesLogged).toBe(2);
+			expect(summary.setsLogged).toBe(7);
+			expect(summary.trainingDays).toBe(1);
+		});
+
+		it('reports every day in the window, including the ones without training', async () => {
+			const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+
+			const summary = await service.summary(userId, threeDaysAgo);
+
+			expect(summary.perDay).toHaveLength(4);
+			expect(summary.perDay.every((day) => day.sets === 0)).toBe(true);
+			expect(summary.trainingDays).toBe(0);
+		});
+
+		it('leaves out another user’s training', async () => {
+			await service.logSet(userId, {
+				programExerciseId: squatExerciseId,
+				setsDone: 4,
+				repsDone: '10'
+			});
+
+			const summary = await service.summary(
+				otherUserId,
+				new Date(Date.now() - 24 * 60 * 60 * 1000)
+			);
+
+			expect(summary.setsLogged).toBe(0);
+			expect(summary.exercisesLogged).toBe(0);
+		});
+	});
+
 	it('narrows history to a single program', async () => {
 		const otherProgram = await programRepository.create(userId, 'Upper Body', 'manual', [
 			{
