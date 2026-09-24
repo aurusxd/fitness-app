@@ -73,12 +73,11 @@
 		<CardContent class="flex flex-col gap-5 p-5">
 			<fieldset class="flex flex-col gap-2">
 				<legend class="mb-2 font-display text-sm font-bold">Цель</legend>
-				<div class="flex gap-2">
+				<div class="flex flex-wrap gap-2">
 					{#each GOALS as [value, label] (value)}
 						<Button
 							variant={goal === value ? 'default' : 'secondary'}
 							size="sm"
-							class="flex-1"
 							onclick={() => (goal = value)}
 						>
 							{label}
@@ -89,12 +88,11 @@
 
 			<fieldset class="flex flex-col gap-2">
 				<legend class="mb-2 font-display text-sm font-bold">Уровень</legend>
-				<div class="flex gap-2">
+				<div class="flex flex-wrap gap-2">
 					{#each LEVELS as [value, label] (value)}
 						<Button
 							variant={level === value ? 'default' : 'secondary'}
 							size="sm"
-							class="flex-1"
 							onclick={() => (level = value)}
 						>
 							{label}
