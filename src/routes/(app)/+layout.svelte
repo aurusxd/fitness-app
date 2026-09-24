@@ -11,11 +11,11 @@
 	let { children } = $props();
 
 	const tabs = [
-		{ href: resolve('/(app)/home'), label: 'Home', icon: HouseIcon },
-		{ href: resolve('/(app)/exercises'), label: 'Library', icon: SearchIcon },
-		{ href: resolve('/(app)/trainer'), label: 'Coach', icon: ZapIcon, hub: true },
-		{ href: resolve('/(app)/log'), label: 'Log', icon: ChartColumnIcon },
-		{ href: resolve('/(app)/profile'), label: 'Profile', icon: UserIcon }
+		{ href: resolve('/(app)/home'), label: 'Главная', icon: HouseIcon },
+		{ href: resolve('/(app)/exercises'), label: 'Каталог', icon: SearchIcon },
+		{ href: resolve('/(app)/trainer'), label: 'Тренер', icon: ZapIcon, hub: true },
+		{ href: resolve('/(app)/log'), label: 'Журнал', icon: ChartColumnIcon },
+		{ href: resolve('/(app)/profile'), label: 'Профиль', icon: UserIcon }
 	];
 
 	function isActive(href: string): boolean {

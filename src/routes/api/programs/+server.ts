@@ -15,7 +15,7 @@ export const POST: RequestHandler = async ({ locals }) => {
 
 	if (!goal || !level) {
 		return json(
-			{ error: 'Complete your profile (goal and level) before generating a program.' },
+			{ error: 'Заполни профиль (цель и уровень), прежде чем собирать программу.' },
 			{ status: 400 }
 		);
 	}

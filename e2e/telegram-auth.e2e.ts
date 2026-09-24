@@ -5,7 +5,7 @@ test.describe('telegram integration', () => {
 	test('opening the app signs the athlete in and lands them in the app shell', async ({ page }) => {
 		// The fixture already ran the bootstrap; this asserts where it left the athlete.
 		await expect(page).toHaveURL(/\/home$/);
-		await expect(page.getByRole('heading', { name: 'This week' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Эта неделя' })).toBeVisible();
 	});
 
 	test('keeps the session across a full page load, which carries no Authorization header', async ({
@@ -13,7 +13,7 @@ test.describe('telegram integration', () => {
 	}) => {
 		await page.goto('/profile');
 
-		await expect(page.getByRole('button', { name: 'Save profile' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Сохранить профиль' })).toBeVisible();
 	});
 
 	test('sends the signed initData from the Telegram SDK as an Authorization header', async ({
@@ -22,20 +22,20 @@ test.describe('telegram integration', () => {
 		await page.goto('/profile');
 
 		// Selecting only takes effect once the page is interactive, so confirm it before saving.
-		const goal = page.getByRole('button', { name: 'Lose fat' });
+		const goal = page.getByRole('button', { name: 'Похудение' });
 		await goal.click();
 		await expect(goal).toHaveClass(/bg-primary/);
 
-		await page.getByRole('button', { name: 'Beginner' }).click();
+		await page.getByRole('button', { name: 'Новичок' }).click();
 
 		const request = page.waitForRequest(
 			(candidate) => candidate.url().endsWith('/api/profile') && candidate.method() === 'PATCH'
 		);
 
-		await page.getByRole('button', { name: 'Save profile' }).click();
+		await page.getByRole('button', { name: 'Сохранить профиль' }).click();
 
 		expect((await request).headers()['authorization']).toBe(`tma ${INIT_DATA}`);
-		await expect(page.getByText('Saved')).toBeVisible();
+		await expect(page.getByText('Сохранено')).toBeVisible();
 	});
 
 	test('loads the Telegram SDK, which is what defines window.Telegram', async ({ page }) => {
@@ -54,7 +54,7 @@ test.describe('telegram integration', () => {
 			const response = await page.goto('/profile');
 
 			expect(response?.status()).toBe(401);
-			await expect(page.getByText('Open this app from your Telegram bot')).toBeVisible();
+			await expect(page.getByText('Открой приложение через своего Telegram-бота')).toBeVisible();
 		}
 	);
 

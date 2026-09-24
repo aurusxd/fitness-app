@@ -47,14 +47,14 @@
 			const body = await response.json();
 
 			if (!response.ok) {
-				errorMessage = body.error ?? 'Could not save this set.';
+				errorMessage = body.error ?? 'Не удалось сохранить подход.';
 				return;
 			}
 
 			onLogged(body.entry as WorkoutLogDto);
 			open = false;
 		} catch {
-			errorMessage = 'Network error. Please try again.';
+			errorMessage = 'Ошибка сети. Попробуй ещё раз.';
 		} finally {
 			saving = false;
 		}
@@ -64,14 +64,14 @@
 <Modal bind:open>
 	<ModalTrigger>
 		{#snippet child({ props })}
-			<Button variant="secondary" size="sm" {...props}>Log</Button>
+			<Button variant="secondary" size="sm" {...props}>Отметить</Button>
 		{/snippet}
 	</ModalTrigger>
 
 	<ModalContent>
 		<ModalHeader>
 			<ModalTitle>{exercise.exerciseName}</ModalTitle>
-			<ModalDescription>Planned: {exercise.sets} × {exercise.reps}</ModalDescription>
+			<ModalDescription>По плану: {exercise.sets} × {exercise.reps}</ModalDescription>
 		</ModalHeader>
 
 		<form
@@ -82,17 +82,17 @@
 			}}
 		>
 			<label class="flex flex-col gap-1.5">
-				<span class="text-xs font-semibold text-muted-foreground">Sets done</span>
+				<span class="text-xs font-semibold text-muted-foreground">Подходов сделано</span>
 				<Input type="number" min="1" max="20" bind:value={setsDone} required />
 			</label>
 
 			<label class="flex flex-col gap-1.5">
-				<span class="text-xs font-semibold text-muted-foreground">Reps done</span>
+				<span class="text-xs font-semibold text-muted-foreground">Повторений</span>
 				<Input bind:value={repsDone} required />
 			</label>
 
 			<label class="flex flex-col gap-1.5">
-				<span class="text-xs font-semibold text-muted-foreground">Weight, kg (optional)</span>
+				<span class="text-xs font-semibold text-muted-foreground">Вес, кг (необязательно)</span>
 				<Input type="number" min="0" step="0.5" bind:value={weightKg} placeholder="—" />
 			</label>
 
@@ -103,10 +103,10 @@
 			<ModalFooter>
 				<ModalClose>
 					{#snippet child({ props })}
-						<Button variant="outline" {...props}>Cancel</Button>
+						<Button variant="outline" {...props}>Отмена</Button>
 					{/snippet}
 				</ModalClose>
-				<Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
+				<Button type="submit" disabled={saving}>{saving ? 'Сохраняю…' : 'Сохранить'}</Button>
 			</ModalFooter>
 		</form>
 	</ModalContent>

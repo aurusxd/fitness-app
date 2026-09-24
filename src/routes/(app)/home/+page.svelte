@@ -4,12 +4,12 @@
 	import { Button } from '$lib/ui/primitives/button';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
-	import { cn } from '$lib/utils';
+	import { cn, GOAL_LABELS, plural } from '$lib/utils';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
-	const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+	const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 	const today = new Date().toISOString().slice(0, 10);
 
 	const week = $derived(
@@ -23,22 +23,22 @@
 
 	const greeting = $derived.by(() => {
 		const hour = new Date().getHours();
-		if (hour < 12) return 'Good morning!';
-		if (hour < 18) return 'Good afternoon!';
-		return 'Good evening!';
+		if (hour < 12) return 'Доброе утро!';
+		if (hour < 18) return 'Добрый день!';
+		return 'Добрый вечер!';
 	});
 
 	const nudge = $derived.by(() => {
 		if (!data.profile.isComplete) {
-			return 'Tell the coach your goal and level, and it will build a program around them.';
+			return 'Расскажи тренеру о цели и уровне — он соберёт программу под них.';
 		}
 		if (data.programCount === 0) {
-			return 'No program yet. Ask the AI coach for one built around your goal.';
+			return 'Программы пока нет. Попроси ИИ-тренера собрать её под твою цель.';
 		}
 		if (data.week.trainingDays === 0) {
-			return 'Nothing logged this week yet. One session is enough to start the streak.';
+			return 'На этой неделе пока пусто. Одной тренировки хватит, чтобы начать серию.';
 		}
-		return `${data.week.trainingDays} training day${data.week.trainingDays === 1 ? '' : 's'} this week. Keep it going.`;
+		return `${plural(data.week.trainingDays, ['тренировка', 'тренировки', 'тренировок'])} на этой неделе. Так держать.`;
 	});
 </script>
 
@@ -51,15 +51,15 @@
 			<div>
 				<div class="text-xs font-medium text-muted-foreground">{greeting}</div>
 				<div class="font-display text-[17px] font-extrabold">
-					{data.profile.username ?? 'Athlete'}
+					{data.profile.username ?? 'Спортсмен'}
 				</div>
 			</div>
 		</div>
 
-		{#if data.profile.isComplete}
-			<Badge variant="secondary">{data.profile.goal}</Badge>
+		{#if data.profile.isComplete && data.profile.goal}
+			<Badge variant="secondary">{GOAL_LABELS[data.profile.goal]}</Badge>
 		{:else}
-			<Badge variant="accent">Set up profile</Badge>
+			<Badge variant="accent">Заполнить профиль</Badge>
 		{/if}
 	</header>
 
@@ -68,14 +68,14 @@
 		class="flex items-center gap-2.5 rounded-[var(--radius-md)] border border-border bg-card px-4 py-3.5 text-sm text-muted-foreground"
 	>
 		<SearchIcon class="size-4" />
-		<span class="flex-1">Search exercises…</span>
+		<span class="flex-1">Поиск упражнений…</span>
 	</a>
 
 	<section>
 		<div class="mb-3.5 flex items-baseline justify-between">
-			<h2 class="font-display text-lg font-extrabold">This week</h2>
+			<h2 class="font-display text-lg font-extrabold">Эта неделя</h2>
 			<span class="text-[13px] font-semibold text-muted-foreground">
-				{data.week.trainingDays}/7 days
+				{data.week.trainingDays}/7 дней
 			</span>
 		</div>
 
@@ -111,11 +111,11 @@
 
 	<section>
 		<div class="mb-3.5 flex items-center justify-between">
-			<h2 class="font-display text-lg font-extrabold">Your program</h2>
+			<h2 class="font-display text-lg font-extrabold">Твоя программа</h2>
 			{#if data.latestProgram?.source === 'ai_generated'}
 				<Badge variant="default">
 					<SparklesIcon class="size-3" />
-					AI generated
+					Собрано ИИ
 				</Badge>
 			{/if}
 		</div>
@@ -134,8 +134,11 @@
 				<div class="relative z-10 max-w-[65%]">
 					<h3 class="mb-1.5 font-display text-xl font-extrabold">{program.title}</h3>
 					<p class="mb-3.5 text-[12.5px] text-muted-foreground">
-						{program.days.length} day{program.days.length === 1 ? '' : 's'} ·
-						{program.days.reduce((total, day) => total + day.exercises.length, 0)} exercises
+						{plural(program.days.length, ['день', 'дня', 'дней'])} ·
+						{plural(
+							program.days.reduce((total, day) => total + day.exercises.length, 0),
+							['упражнение', 'упражнения', 'упражнений']
+						)}
 					</p>
 				</div>
 
@@ -143,15 +146,15 @@
 					href={resolve('/(app)/programs/[id]', { id: String(program.id) })}
 					class="relative z-10 self-start"
 				>
-					Open program
+					Открыть программу
 				</Button>
 			</div>
 		{:else}
 			<div
 				class="flex flex-col items-start gap-3 rounded-3xl border border-border bg-card p-5 text-sm text-muted-foreground"
 			>
-				<p class="m-0">No programs yet.</p>
-				<Button href={resolve('/(app)/trainer')}>Ask the AI coach</Button>
+				<p class="m-0">Программ пока нет.</p>
+				<Button href={resolve('/(app)/trainer')}>Спросить ИИ-тренера</Button>
 			</div>
 		{/if}
 
@@ -160,14 +163,14 @@
 				href={resolve('/(app)/programs')}
 				class="mt-3 block text-center text-xs font-semibold text-muted-foreground"
 			>
-				All {data.programCount} programs
+				Все программы ({data.programCount})
 			</a>
 		{/if}
 	</section>
 
 	{#if data.muscleGroups.length > 0}
 		<section>
-			<h2 class="mb-3.5 font-display text-lg font-extrabold">Body focus</h2>
+			<h2 class="mb-3.5 font-display text-lg font-extrabold">Группы мышц</h2>
 			<div class="flex gap-3">
 				{#each data.muscleGroups as group (group)}
 					<a

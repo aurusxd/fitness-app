@@ -8,14 +8,14 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
 	const parsed = updateProfileSchema.safeParse(body);
 
 	if (!parsed.success) {
-		return json({ error: 'Invalid request body' }, { status: 400 });
+		return json({ error: 'Неверный запрос' }, { status: 400 });
 	}
 
 	const userRepository = new UserRepository();
 	const updated = await userRepository.updateProfile(locals.user.id, parsed.data);
 
 	if (!updated) {
-		return json({ error: 'Profile not found' }, { status: 404 });
+		return json({ error: 'Профиль не найден' }, { status: 404 });
 	}
 
 	return json({ profile: updated.toProfileDto() });

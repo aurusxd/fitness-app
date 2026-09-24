@@ -4,9 +4,7 @@
 	import { Button } from '$lib/ui/primitives/button';
 
 	const message = $derived(
-		page.status === 404
-			? 'This page does not exist.'
-			: (page.error?.message ?? 'Something went wrong.')
+		page.status === 404 ? 'Такой страницы нет.' : (page.error?.message ?? 'Что-то пошло не так.')
 	);
 </script>
 
@@ -15,6 +13,6 @@
 	<p class="text-center text-sm text-muted-foreground">{message}</p>
 	{#if page.status !== 401}
 		<!-- Every in-app route needs the same sign-in, so on 401 this link would only loop back here. -->
-		<Button href={resolve('/(app)/home')}>Back to the app</Button>
+		<Button href={resolve('/(app)/home')}>Вернуться в приложение</Button>
 	{/if}
 </div>

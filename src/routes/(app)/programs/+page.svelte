@@ -6,6 +6,7 @@
 	import { Button } from '$lib/ui/primitives/button';
 	import { authFetch } from '$lib/client/telegram';
 	import type { WorkoutProgramDto } from '$lib/types';
+	import { plural } from '$lib/utils';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -22,7 +23,7 @@
 			const body = await response.json();
 
 			if (!response.ok) {
-				errorMessage = body.error ?? 'Something went wrong.';
+				errorMessage = body.error ?? 'Что-то пошло не так.';
 				return;
 			}
 
@@ -30,7 +31,7 @@
 			programs = [program, ...programs];
 			await goto(resolve('/(app)/programs/[id]', { id: String(program.id) }));
 		} catch {
-			errorMessage = 'Network error. Please try again.';
+			errorMessage = 'Ошибка сети. Попробуй ещё раз.';
 		} finally {
 			generating = false;
 		}
@@ -39,9 +40,9 @@
 
 <div class="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-6">
 	<div class="flex items-center justify-between">
-		<h1 class="font-display text-lg font-bold">My Programs</h1>
+		<h1 class="font-display text-lg font-bold">Мои программы</h1>
 		<Button onclick={generateProgram} disabled={generating}>
-			{generating ? 'Generating…' : 'Generate program'}
+			{generating ? 'Собираю…' : 'Собрать программу'}
 		</Button>
 	</div>
 
@@ -51,7 +52,7 @@
 
 	{#if programs.length === 0}
 		<p class="text-center text-sm text-muted-foreground">
-			No programs yet. Generate one based on your profile.
+			Программ пока нет. Собери первую по своему профилю.
 		</p>
 	{/if}
 
@@ -63,14 +64,14 @@
 						<div class="flex items-center justify-between">
 							<CardTitle>{program.title}</CardTitle>
 							<Badge variant={program.source === 'ai_generated' ? 'default' : 'secondary'}>
-								{program.source === 'ai_generated' ? 'AI' : 'Manual'}
+								{program.source === 'ai_generated' ? 'ИИ' : 'Вручную'}
 							</Badge>
 						</div>
 						<CardDescription>
-							{program.days.length} day{program.days.length === 1 ? '' : 's'} · {program.days.reduce(
-								(total, day) => total + day.exercises.length,
-								0
-							)} exercises
+							{plural(program.days.length, ['день', 'дня', 'дней'])} · {plural(
+								program.days.reduce((total, day) => total + day.exercises.length, 0),
+								['упражнение', 'упражнения', 'упражнений']
+							)}
 						</CardDescription>
 					</CardHeader>
 				</Card>

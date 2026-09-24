@@ -49,14 +49,14 @@
 			const body = await response.json();
 
 			if (!response.ok) {
-				errorMessage = body.error ?? 'Something went wrong.';
+				errorMessage = body.error ?? 'Что-то пошло не так.';
 				return;
 			}
 
 			messages.push(body.message as ChatMessageDto);
 			scrollToLatest();
 		} catch {
-			errorMessage = 'Network error. Please try again.';
+			errorMessage = 'Ошибка сети. Попробуй ещё раз.';
 		} finally {
 			sending = false;
 		}
@@ -64,12 +64,12 @@
 </script>
 
 <div class="mx-auto flex h-[calc(100dvh-7rem)] max-w-2xl flex-col px-6 py-6">
-	<h1 class="mb-6 font-display text-lg font-bold">AI Coach</h1>
+	<h1 class="mb-6 font-display text-lg font-bold">ИИ-тренер</h1>
 
 	<div bind:this={thread} class="flex flex-1 flex-col gap-4 overflow-y-auto pb-4">
 		{#if messages.length === 0}
 			<p class="text-center text-sm text-muted-foreground">
-				Hey! Tell me how you're feeling today and I'll help you plan your session.
+				Привет! Расскажи, как ты себя чувствуешь сегодня, и я помогу спланировать тренировку.
 			</p>
 		{/if}
 		{#each messages as message (message.id)}
@@ -91,7 +91,7 @@
 			sendMessage();
 		}}
 	>
-		<Input bind:value={draft} placeholder="Ask your coach…" disabled={sending} />
+		<Input bind:value={draft} placeholder="Спроси тренера…" disabled={sending} />
 		<Button type="submit" size="icon" disabled={sending || !draft.trim()}>→</Button>
 	</form>
 </div>

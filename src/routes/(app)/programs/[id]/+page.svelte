@@ -3,11 +3,12 @@
 	import { Badge } from '$lib/ui/primitives/badge';
 	import LogExerciseModal from './LogExerciseModal.svelte';
 	import type { WorkoutLogDto } from '$lib/types';
+	import { plural } from '$lib/utils';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
-	const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+	const DAY_NAMES = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
 	let entries = $state<WorkoutLogDto[]>(data.entries);
 
@@ -29,11 +30,11 @@
 		<div class="mb-2 flex items-center gap-2">
 			<h1 class="font-display text-lg font-bold">{data.program.title}</h1>
 			<Badge variant={data.program.source === 'ai_generated' ? 'default' : 'secondary'}>
-				{data.program.source === 'ai_generated' ? 'AI' : 'Manual'}
+				{data.program.source === 'ai_generated' ? 'ИИ' : 'Вручную'}
 			</Badge>
 		</div>
 		<p class="text-sm text-muted-foreground">
-			{data.program.days.length} day{data.program.days.length === 1 ? '' : 's'} per week
+			{plural(data.program.days.length, ['день', 'дня', 'дней'])} в неделю
 		</p>
 	</div>
 
@@ -41,7 +42,7 @@
 		{#each data.program.days as day (day.dayIndex)}
 			<Card>
 				<CardHeader>
-					<CardTitle>{DAY_NAMES[day.dayIndex] ?? `Day ${day.dayIndex + 1}`}</CardTitle>
+					<CardTitle>{DAY_NAMES[day.dayIndex] ?? `День ${day.dayIndex + 1}`}</CardTitle>
 				</CardHeader>
 				<CardContent class="flex flex-col gap-3">
 					{#each day.exercises as exercise (exercise.id)}
@@ -54,13 +55,13 @@
 								<div class="text-xs text-muted-foreground">
 									{exercise.sets} × {exercise.reps}
 									{#if exercise.restSeconds}
-										· {exercise.restSeconds}s rest
+										· отдых {exercise.restSeconds} с
 									{/if}
 								</div>
 								{#if lastLog}
 									<div class="mt-1 text-xs font-semibold text-primary">
-										Done {lastLog.setsDone} × {lastLog.repsDone}{lastLog.weightKg
-											? ` · ${lastLog.weightKg} kg`
+										Сделано {lastLog.setsDone} × {lastLog.repsDone}{lastLog.weightKg
+											? ` · ${lastLog.weightKg} кг`
 											: ''}
 									</div>
 								{/if}

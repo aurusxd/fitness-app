@@ -15,7 +15,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const parsed = sendChatMessageSchema.safeParse(body);
 
 	if (!parsed.success) {
-		return json({ error: 'Invalid request body' }, { status: 400 });
+		return json({ error: 'Неверный запрос' }, { status: 400 });
 	}
 
 	const aiClient = new DeepseekClient(config.deepseekApiKey, config.deepseekBaseUrl);

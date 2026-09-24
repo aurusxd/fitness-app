@@ -39,14 +39,14 @@
 			const body = await response.json();
 
 			if (!response.ok) {
-				errorMessage = body.error ?? 'Could not save this exercise.';
+				errorMessage = body.error ?? 'Не удалось сохранить упражнение.';
 				return;
 			}
 
 			onUpdated(body.exercise as ExerciseDto);
 			open = false;
 		} catch {
-			errorMessage = 'Network error. Please try again.';
+			errorMessage = 'Ошибка сети. Попробуй ещё раз.';
 		} finally {
 			saving = false;
 		}
@@ -56,14 +56,16 @@
 <Modal bind:open>
 	<ModalTrigger>
 		{#snippet child({ props })}
-			<Button variant="ghost" size="sm" {...props}>Edit</Button>
+			<Button variant="ghost" size="sm" {...props}>Изменить</Button>
 		{/snippet}
 	</ModalTrigger>
 
 	<ModalContent>
 		<ModalHeader>
 			<ModalTitle>{exercise.name}</ModalTitle>
-			<ModalDescription>Categorise this exercise for the library filters.</ModalDescription>
+			<ModalDescription
+				>Укажи группу мышц и инвентарь, чтобы упражнение попадало в фильтры.</ModalDescription
+			>
 		</ModalHeader>
 
 		<form
@@ -74,13 +76,13 @@
 			}}
 		>
 			<label class="flex flex-col gap-1.5">
-				<span class="text-xs font-semibold text-muted-foreground">Muscle group</span>
+				<span class="text-xs font-semibold text-muted-foreground">Группа мышц</span>
 				<Input bind:value={muscleGroup} required />
 			</label>
 
 			<label class="flex flex-col gap-1.5">
 				<span class="text-xs font-semibold text-muted-foreground">
-					Equipment (leave empty for bodyweight)
+					Инвентарь (пусто — свой вес)
 				</span>
 				<Input bind:value={equipment} placeholder="—" />
 			</label>
@@ -92,10 +94,10 @@
 			<ModalFooter>
 				<ModalClose>
 					{#snippet child({ props })}
-						<Button variant="outline" {...props}>Cancel</Button>
+						<Button variant="outline" {...props}>Отмена</Button>
 					{/snippet}
 				</ModalClose>
-				<Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
+				<Button type="submit" disabled={saving}>{saving ? 'Сохраняю…' : 'Сохранить'}</Button>
 			</ModalFooter>
 		</form>
 	</ModalContent>

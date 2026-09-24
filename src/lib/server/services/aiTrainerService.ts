@@ -23,7 +23,14 @@ const PROGRAM_SYSTEM_PROMPT = `You are a certified fitness trainer. Generate a w
 Rules for exerciseName:
 - Use the plain, canonical name of the movement only: "Goblet Squat", never "Goblet Squat (light, pain-free)".
 - No parentheses, no notes, no coaching cues, no equipment qualifiers beyond the standard name.
-- Express adjustments for the athlete's limits by choosing a safer movement, not by annotating the name.`;
+- Express adjustments for the athlete's limits by choosing a safer movement, not by annotating the name.
+
+The "title" field is shown to the athlete, so write it in Russian. Exercise names stay English.`;
+
+/** Without one the model mirrors the language of the last message, and the app is Russian (tech.md §5). */
+const CHAT_SYSTEM_PROMPT = `Ты — сертифицированный фитнес-тренер в мобильном приложении. Всегда отвечай по-русски, на «ты», коротко и по делу — один-два абзаца, без markdown-разметки и списков.
+Названия упражнений пиши по-английски, как они заведены в библиотеке (например, Goblet Squat), остальное — по-русски.
+Не ставь диагнозов и не давай медицинских рекомендаций: при боли советуй обратиться к врачу.`;
 
 const LIBRARY_PROMPT_LIMIT = 120;
 
@@ -35,13 +42,13 @@ export interface ProfileForGeneration {
 
 export class RateLimitExceededError extends Error {
 	constructor() {
-		super('Too many messages this hour. Please wait before sending another one.');
+		super('Слишком много сообщений за этот час. Подожди немного.');
 		this.name = 'RateLimitExceededError';
 	}
 }
 
 export class AiTrainerError extends Error {
-	constructor(message = 'The AI trainer is unavailable right now. Please try again.') {
+	constructor(message = 'ИИ-тренер сейчас недоступен. Попробуй ещё раз.') {
 		super(message);
 		this.name = 'AiTrainerError';
 	}
@@ -49,7 +56,7 @@ export class AiTrainerError extends Error {
 
 export class InvalidAiResponseError extends Error {
 	constructor() {
-		super('The AI generated an invalid program. Please try again.');
+		super('ИИ вернул некорректную программу. Попробуй ещё раз.');
 		this.name = 'InvalidAiResponseError';
 	}
 }
@@ -99,10 +106,13 @@ export class AiTrainerService {
 		await this.chatMessageRepository.append(userId, 'user', content);
 
 		const history = await this.chatMessageRepository.recentHistory(userId, HISTORY_LIMIT);
-		const messages: AiChatMessage[] = history.map((row) => ({
-			role: row.role,
-			content: row.content
-		}));
+		const messages: AiChatMessage[] = [
+			{ role: 'system', content: CHAT_SYSTEM_PROMPT },
+			...history.map((row) => ({
+				role: row.role,
+				content: row.content
+			}))
+		];
 
 		const reply = await this.requestReplyWithRetry(messages);
 

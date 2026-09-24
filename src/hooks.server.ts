@@ -46,7 +46,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			if (event.url.pathname.startsWith('/api/')) {
 				return json({ error: 'Unauthorized' }, { status: 401 });
 			}
-			error(401, 'Open this app from your Telegram bot to sign in.');
+			error(401, 'Открой приложение через своего Telegram-бота, чтобы войти.');
 		}
 		logger.warn('telegram auth bypassed via DEV_TELEGRAM_ID');
 	}

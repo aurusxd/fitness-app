@@ -87,13 +87,16 @@ describe('AiTrainerService', () => {
 		]);
 	});
 
-	it('sends the conversation history to the AiClient with mapped roles', async () => {
+	it('leads with a system prompt that pins the reply language, then the mapped history', async () => {
 		const aiClient = new FakeAiClient({ content: 'ok' });
 		const service = makeService(aiClient);
 
 		await service.sendMessage(userId, 'hello');
 
-		expect(aiClient.calls[0]).toEqual([{ role: 'user', content: 'hello' }]);
+		const [systemPrompt, ...history] = aiClient.calls[0];
+		expect(systemPrompt.role).toBe('system');
+		expect(systemPrompt.content).toContain('по-русски');
+		expect(history).toEqual([{ role: 'user', content: 'hello' }]);
 	});
 
 	it('retries once on a 500 and returns a clean error if it fails again', async () => {

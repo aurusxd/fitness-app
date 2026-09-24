@@ -7,18 +7,18 @@ test.describe('critical paths', () => {
 	test('an authorised athlete can complete their profile', async ({ page }) => {
 		await page.goto('/profile');
 
-		await expect(page.getByText('Finish your profile')).toBeVisible();
+		await expect(page.getByText('Заполни профиль')).toBeVisible();
 
-		await page.getByRole('button', { name: 'Lose fat' }).click();
-		await page.getByRole('button', { name: 'Beginner' }).click();
-		await page.getByRole('textbox').fill('Sensitive left knee');
-		await page.getByRole('button', { name: 'Save profile' }).click();
+		await page.getByRole('button', { name: 'Похудение' }).click();
+		await page.getByRole('button', { name: 'Новичок' }).click();
+		await page.getByRole('textbox').fill('Больное левое колено');
+		await page.getByRole('button', { name: 'Сохранить профиль' }).click();
 
-		await expect(page.getByText('Saved')).toBeVisible();
+		await expect(page.getByText('Сохранено')).toBeVisible();
 
 		await page.reload();
-		await expect(page.getByText('Profile complete')).toBeVisible();
-		await expect(page.getByRole('textbox')).toHaveValue('Sensitive left knee');
+		await expect(page.getByText('Профиль заполнен')).toBeVisible();
+		await expect(page.getByRole('textbox')).toHaveValue('Больное левое колено');
 	});
 
 	test('the AI trainer generates a program and it is saved', async ({ page }) => {
@@ -28,7 +28,7 @@ test.describe('critical paths', () => {
 			(response) =>
 				response.url().endsWith('/api/programs') && response.request().method() === 'POST'
 		);
-		await page.getByRole('button', { name: 'Generate program' }).click();
+		await page.getByRole('button', { name: 'Собрать программу' }).click();
 
 		const { program } = await (await saved).json();
 		expect(program.title).toBe('E2E Fat Loss Plan');
@@ -42,8 +42,8 @@ test.describe('critical paths', () => {
 		await expect(page.getByText('Face Pull')).toBeVisible();
 
 		// Two days in the mocked response, mapped to their weekday names.
-		await expect(page.getByRole('heading', { name: 'Mon' })).toBeVisible();
-		await expect(page.getByRole('heading', { name: 'Wed' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Пн' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Ср' })).toBeVisible();
 
 		await page.goto('/programs');
 		await expect(page.getByText('E2E Fat Loss Plan')).toBeVisible();
@@ -55,28 +55,28 @@ test.describe('critical paths', () => {
 		await page.goto('/exercises?search=face');
 
 		await expect(page.getByText('Face Pull')).toBeVisible();
-		await expect(page.getByText('Needs categorising')).toBeVisible();
+		await expect(page.getByText('Нужна категория')).toBeVisible();
 	});
 
 	test('a completed set is logged and shows up in the workout log', async ({ page }) => {
 		await page.goto('/programs');
 		await page.getByText('E2E Fat Loss Plan').click();
 
-		await page.getByRole('button', { name: 'Log' }).first().click();
+		await page.getByRole('button', { name: 'Отметить' }).first().click();
 
 		const dialog = page.getByRole('dialog');
 		await expect(dialog).toBeVisible();
 		await dialog.getByRole('spinbutton').first().fill('4');
 		await dialog.getByRole('textbox').fill('10');
 		await dialog.getByRole('spinbutton').last().fill('20');
-		await dialog.getByRole('button', { name: 'Save' }).click();
+		await dialog.getByRole('button', { name: 'Сохранить' }).click();
 
-		await expect(page.getByText('Done 4 × 10 · 20 kg')).toBeVisible();
+		await expect(page.getByText('Сделано 4 × 10 · 20 кг')).toBeVisible();
 
 		await page.goto('/log');
 		await expect(page.getByText('Bodyweight Squat')).toBeVisible();
 		await expect(page.getByText('E2E Fat Loss Plan')).toBeVisible();
-		await expect(page.getByText('4 × 10 · 20 kg')).toBeVisible();
+		await expect(page.getByText('4 × 10 · 20 кг')).toBeVisible();
 	});
 
 	test('the coach composer stays above the tab bar, and replies arrive in view', async ({
@@ -84,7 +84,7 @@ test.describe('critical paths', () => {
 	}) => {
 		await page.goto('/trainer');
 
-		const composer = page.getByPlaceholder('Ask your coach…');
+		const composer = page.getByPlaceholder('Спроси тренера…');
 		const tabBar = page.getByRole('navigation');
 
 		// Being inside the viewport is not enough: the tab bar floats over the page, and a composer
