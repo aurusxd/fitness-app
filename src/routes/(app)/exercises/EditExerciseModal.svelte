@@ -12,6 +12,7 @@
 	import { Button } from '$lib/ui/primitives/button';
 	import { Input } from '$lib/ui/primitives/input';
 	import { authFetch } from '$lib/client/telegram';
+	import { MUSCLE_GROUP_LABELS } from '$lib/utils';
 	import type { ExerciseDto } from '$lib/types';
 
 	let {
@@ -20,7 +21,15 @@
 	}: { exercise: ExerciseDto; onUpdated: (updated: ExerciseDto) => void } = $props();
 
 	let open = $state(false);
-	let muscleGroup = $state(exercise.muscleGroup);
+	// An uncategorised exercise starts empty, so the required select asks for a real choice.
+	function editableGroup(target: ExerciseDto): string {
+		return target.needsCategorisation ? '' : target.muscleGroup;
+	}
+
+	let muscleGroup = $state(editableGroup(exercise));
+
+	// Stored as stable keys; 'unspecified' is the placeholder the AI leaves, not a real choice.
+	const muscleGroups = Object.entries(MUSCLE_GROUP_LABELS).filter(([key]) => key !== 'unspecified');
 	let equipment = $state(exercise.equipment ?? '');
 	let saving = $state(false);
 	let errorMessage = $state<string | null>(null);
@@ -77,7 +86,16 @@
 		>
 			<label class="flex flex-col gap-1.5">
 				<span class="text-xs font-semibold text-muted-foreground">Группа мышц</span>
-				<Input bind:value={muscleGroup} required />
+				<select
+					bind:value={muscleGroup}
+					required
+					class="h-11 rounded-[var(--radius-md)] border border-input bg-card px-3 text-sm text-foreground transition-colors focus-visible:border-primary/60 focus-visible:outline-none"
+				>
+					<option value="" disabled>Выбери группу мышц</option>
+					{#each muscleGroups as [key, label] (key)}
+						<option value={key}>{label}</option>
+					{/each}
+				</select>
 			</label>
 
 			<label class="flex flex-col gap-1.5">
