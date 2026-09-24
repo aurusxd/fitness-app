@@ -78,4 +78,27 @@ test.describe('critical paths', () => {
 		await expect(page.getByText('E2E Fat Loss Plan')).toBeVisible();
 		await expect(page.getByText('4 × 10 · 20 kg')).toBeVisible();
 	});
+
+	test('the coach composer stays above the tab bar, and replies arrive in view', async ({
+		page
+	}) => {
+		await page.goto('/trainer');
+
+		const composer = page.getByPlaceholder('Ask your coach…');
+		const tabBar = page.getByRole('navigation');
+
+		// Being inside the viewport is not enough: the tab bar floats over the page, and a composer
+		// underneath it can only be reached by scrolling.
+		const composerBox = await composer.boundingBox();
+		const tabBarBox = await tabBar.boundingBox();
+		expect(composerBox!.y + composerBox!.height).toBeLessThanOrEqual(tabBarBox!.y);
+
+		await composer.fill('How should I train today?');
+		await page.getByRole('button', { name: '→' }).click();
+
+		const reply = page.getByText('Sounds good. Let us start easy today.');
+		await expect(reply).toBeVisible();
+		const replyBox = await reply.boundingBox();
+		expect(replyBox!.y + replyBox!.height).toBeLessThanOrEqual(composerBox!.y);
+	});
 });

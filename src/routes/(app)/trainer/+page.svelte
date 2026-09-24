@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount, tick } from 'svelte';
 	import { ChatBubble } from '$lib/ui/primitives/chat-bubble';
 	import { Input } from '$lib/ui/primitives/input';
 	import { Button } from '$lib/ui/primitives/button';
@@ -12,6 +13,15 @@
 	let draft = $state('');
 	let sending = $state(false);
 	let errorMessage = $state<string | null>(null);
+	let thread = $state<HTMLDivElement | null>(null);
+
+	/** The newest message is the one worth reading, and it lands below the fold as the thread grows. */
+	async function scrollToLatest(): Promise<void> {
+		await tick();
+		thread?.scrollTo({ top: thread.scrollHeight });
+	}
+
+	onMount(scrollToLatest);
 
 	async function sendMessage() {
 		const content = draft.trim();
@@ -27,6 +37,8 @@
 		});
 
 		sending = true;
+		scrollToLatest();
+
 		try {
 			const response = await authFetch('/api/trainer', {
 				method: 'POST',
@@ -42,6 +54,7 @@
 			}
 
 			messages.push(body.message as ChatMessageDto);
+			scrollToLatest();
 		} catch {
 			errorMessage = 'Network error. Please try again.';
 		} finally {
@@ -50,10 +63,10 @@
 	}
 </script>
 
-<div class="mx-auto flex h-dvh max-w-2xl flex-col px-6 py-6">
+<div class="mx-auto flex h-[calc(100dvh-7rem)] max-w-2xl flex-col px-6 py-6">
 	<h1 class="mb-6 font-display text-lg font-bold">AI Coach</h1>
 
-	<div class="flex flex-1 flex-col gap-4 overflow-y-auto pb-4">
+	<div bind:this={thread} class="flex flex-1 flex-col gap-4 overflow-y-auto pb-4">
 		{#if messages.length === 0}
 			<p class="text-center text-sm text-muted-foreground">
 				Hey! Tell me how you're feeling today and I'll help you plan your session.
