@@ -28,7 +28,9 @@ export const workoutPrograms = sqliteTable(
 			.references(() => users.id),
 		title: text('title').notNull(),
 		source: text('source', { enum: ['ai_generated', 'manual'] }).notNull(),
-		createdAt: integer('created_at', { mode: 'timestamp' }).notNull()
+		createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+		/** Set when the athlete deletes the program; the row stays so logged history keeps its title (v14). */
+		archivedAt: integer('archived_at', { mode: 'timestamp' })
 	},
 	(table) => [index('workout_programs_user_id_idx').on(table.userId)]
 );

@@ -1,5 +1,32 @@
+import type { Page } from '@playwright/test';
 import { anonymousTest, expect, test } from './fixtures';
 import { initDataFor, installTelegramStub, signIn } from './telegram';
+
+/** A fresh athlete with a profile, one program and one set logged today against it. */
+async function athleteWithALoggedSet(page: Page, id: number): Promise<void> {
+	await installTelegramStub(page, initDataFor({ id, username: `athlete${id}` }));
+	await signIn(page);
+
+	await page.goto('/profile');
+	const goal = page.getByRole('button', { name: 'Похудение' });
+	await goal.click();
+	await expect(goal).toHaveClass(/bg-primary/);
+	await page.getByRole('button', { name: 'Новичок' }).click();
+	await page.getByRole('button', { name: 'Сохранить профиль' }).click();
+	await expect(page.getByText('Сохранено')).toBeVisible();
+
+	// A click before hydration lands on server-rendered HTML with no handler behind it.
+	await page.goto('/programs', { waitUntil: 'networkidle' });
+	await page.getByRole('button', { name: 'Собрать программу' }).click();
+	await expect(page).toHaveURL(/\/programs\/\d+$/);
+
+	await page.getByRole('button', { name: 'Отметить' }).first().click();
+	const dialog = page.getByRole('dialog');
+	await dialog.getByRole('spinbutton').first().fill('3');
+	await dialog.getByRole('textbox').fill('12');
+	await dialog.getByRole('button', { name: 'Сохранить' }).click();
+	await expect(page.getByText('Сделано 3 × 12')).toBeVisible();
+}
 
 // The paths build on each other: a profile unlocks generation, and a program is what you log against.
 test.describe.configure({ mode: 'serial' });
@@ -181,4 +208,27 @@ test.describe('critical paths', () => {
 
 		await expect(page).toHaveURL(/\/log$/);
 	});
+
+	anonymousTest(
+		'deleting a program hides it but keeps what was logged against it',
+		async ({ page }) => {
+			await athleteWithALoggedSet(page, 901);
+
+			await page.goto('/programs', { waitUntil: 'networkidle' });
+			await page.getByRole('button', { name: 'Удалить «Программа похудения E2E»' }).click();
+
+			const dialog = page.getByRole('dialog');
+			await expect(dialog).toContainText('останутся в журнале');
+			await dialog.getByRole('button', { name: 'Удалить' }).click();
+
+			await expect(page.getByText('Программ пока нет')).toBeVisible();
+			await page.reload();
+			await expect(page.getByText('Программ пока нет')).toBeVisible();
+
+			// The history belongs to the athlete, not to the program.
+			await page.goto('/log');
+			await expect(page.getByText('3 × 12')).toBeVisible();
+			await expect(page.getByText('Программа похудения E2E')).toBeVisible();
+		}
+	);
 });

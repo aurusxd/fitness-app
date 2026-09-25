@@ -22,6 +22,13 @@
       "when": 1790258256067,
       "tag": "0002_translate_ai_created_exercises",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790305752076,
+      "tag": "0003_archive_programs",
+      "breakpoints": true
     }
   ]
 }

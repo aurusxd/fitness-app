@@ -23,3 +23,22 @@ export async function requestProgram(): Promise<ProgramRequestResult> {
 
 	return { program: body.program as WorkoutProgramDto };
 }
+
+export type ProgramDeleteResult = { ok: true } | { error: string };
+
+/** Deletes the program for this athlete; the sets already logged against it stay in history. */
+export async function deleteProgram(programId: number): Promise<ProgramDeleteResult> {
+	let response: Response;
+	try {
+		response = await authFetch(`/api/programs/${programId}`, { method: 'DELETE' });
+	} catch {
+		return { error: 'Ошибка сети. Попробуй ещё раз.' };
+	}
+
+	if (!response.ok) {
+		const body = await response.json().catch(() => null);
+		return { error: body?.error ?? 'Не удалось удалить программу. Попробуй ещё раз.' };
+	}
+
+	return { ok: true };
+}

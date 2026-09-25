@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createTestDb } from '../db/createTestDb';
 import { users } from '../db/schema';
 import { ExerciseRepository } from './exerciseRepository';
+import { WorkoutLogRepository } from './workoutLogRepository';
 import { ProgramRepository } from './programRepository';
 
 describe('ProgramRepository', () => {
@@ -59,5 +60,61 @@ describe('ProgramRepository', () => {
 		const list = await programRepository.listByUser(userId);
 
 		expect(list.map((p) => p.title)).toEqual(['Second', 'First']);
+	});
+
+	describe('deleting a program', () => {
+		async function programWithOneExercise(ownerId = userId) {
+			const squat = await exerciseRepository.findOrCreateByName('Приседания со штангой');
+			return programRepository.create(ownerId, 'Ноги', 'ai_generated', [
+				{ exerciseId: squat.id, dayIndex: 0, orderIndex: 0, sets: 3, reps: '10' }
+			]);
+		}
+
+		it('takes the program out of the list and out of reach by id', async () => {
+			const program = await programWithOneExercise();
+
+			expect(await programRepository.archiveForUser(program.id, userId)).toBe(true);
+
+			expect(await programRepository.listByUser(userId)).toEqual([]);
+			expect(await programRepository.findByIdForUser(program.id, userId)).toBeNull();
+		});
+
+		it("refuses to delete another athlete's program", async () => {
+			const program = await programWithOneExercise(otherUserId);
+
+			expect(await programRepository.archiveForUser(program.id, userId)).toBe(false);
+			expect(await programRepository.listByUser(otherUserId)).toHaveLength(1);
+		});
+
+		it('reports nothing to delete the second time', async () => {
+			const program = await programWithOneExercise();
+			await programRepository.archiveForUser(program.id, userId);
+
+			expect(await programRepository.archiveForUser(program.id, userId)).toBe(false);
+		});
+
+		it('keeps the sets already logged, under the program title, in the history', async () => {
+			const program = await programWithOneExercise();
+			const workoutLogRepository = new WorkoutLogRepository(db);
+			const programExerciseId = program.days[0].exercises[0].id;
+			await workoutLogRepository.create(userId, { programExerciseId, setsDone: 3, repsDone: '10' });
+
+			await programRepository.archiveForUser(program.id, userId);
+
+			const history = await workoutLogRepository.listForUser(userId);
+			expect(history).toHaveLength(1);
+			expect(history[0].programTitle).toBe('Ноги');
+		});
+
+		it('accepts no new sets against a deleted program', async () => {
+			const program = await programWithOneExercise();
+			const programExerciseId = program.days[0].exercises[0].id;
+
+			await programRepository.archiveForUser(program.id, userId);
+
+			expect(await programRepository.programExerciseBelongsTo(programExerciseId, userId)).toBe(
+				false
+			);
+		});
 	});
 });
