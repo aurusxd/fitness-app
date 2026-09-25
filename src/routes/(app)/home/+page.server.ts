@@ -20,8 +20,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const monday = startOfWeek(new Date());
 	const sunday = new Date(monday.getTime() + 6 * 24 * 60 * 60 * 1000);
 
-	const [week, programs, muscleGroups] = await Promise.all([
+	// The week's entries ride along, so picking a day on the strip needs no round trip.
+	const [week, weekEntries, programs, muscleGroups] = await Promise.all([
 		workoutLogService.summary(locals.user.id, monday, sunday),
+		workoutLogService.historySince(locals.user.id, monday),
 		programService.listForUser(locals.user.id),
 		exerciseRepository.distinctMuscleGroups()
 	]);
@@ -29,6 +31,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		profile: locals.user.toProfileDto(),
 		week,
+		weekEntries,
 		latestProgram: programs[0] ?? null,
 		programCount: programs.length,
 		muscleGroups: muscleGroups.slice(0, 3)

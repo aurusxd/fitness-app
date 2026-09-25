@@ -7,6 +7,8 @@
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+	import { fade } from 'svelte/transition';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { cn, GOAL_LABELS, muscleGroupLabel, plural } from '$lib/utils';
 	import type { PageData } from './$types';
 
@@ -32,6 +34,31 @@
 
 	const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 	const today = new Date().toISOString().slice(0, 10);
+	const DAY_MS = 24 * 60 * 60 * 1000;
+
+	let selectedDate = $state(today);
+
+	// Day keys are UTC dates, the same ones the strip and the server group by.
+	const dayEntries = $derived(
+		data.weekEntries.filter((entry) => entry.performedAt.slice(0, 10) === selectedDate)
+	);
+	const daySets = $derived(dayEntries.reduce((total, entry) => total + entry.setsDone, 0));
+
+	const dayTitleFormat = new Intl.DateTimeFormat('ru', {
+		weekday: 'long',
+		day: 'numeric',
+		month: 'long',
+		timeZone: 'UTC'
+	});
+
+	const dayTitle = $derived.by(() => {
+		if (selectedDate === today) return 'Сегодня';
+		if (selectedDate === new Date(Date.parse(today) - DAY_MS).toISOString().slice(0, 10)) {
+			return 'Вчера';
+		}
+		const label = dayTitleFormat.format(new Date(selectedDate));
+		return label.charAt(0).toUpperCase() + label.slice(1);
+	});
 
 	const week = $derived(
 		data.week.perDay.slice(0, 7).map((day, index) => ({
@@ -100,26 +127,73 @@
 			</span>
 		</div>
 
-		<div class="flex gap-2">
+		<div class="flex gap-2" role="group" aria-label="Дни недели">
 			{#each week as day (day.date)}
-				<div
+				{@const selected = day.date === selectedDate}
+				<!-- A day that has not happened yet has nothing to show. -->
+				<button
+					type="button"
+					disabled={day.date > today}
+					aria-pressed={selected}
+					onclick={() => (selectedDate = day.date)}
 					class={cn(
-						'flex flex-1 flex-col items-center gap-1.5 rounded-2xl py-3 font-display text-[11.5px] font-semibold',
-						day.isToday ? 'bg-foreground text-background' : 'text-muted-foreground'
+						'flex flex-1 flex-col items-center gap-1.5 rounded-2xl py-3 font-display text-[11.5px] font-semibold transition-[background-color,color,transform,box-shadow] duration-200 ease-out active:scale-95 disabled:opacity-40',
+						selected ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-card',
+						!selected && day.isToday && 'ring-1 ring-foreground/25 ring-inset'
 					)}
 				>
 					<span>{day.label}</span>
-					<span class={cn('text-sm font-extrabold', !day.isToday && 'text-foreground/80')}>
+					<span class={cn('text-sm font-extrabold', !selected && 'text-foreground/80')}>
 						{day.dayOfMonth}
 					</span>
 					<span
 						class={cn(
 							'size-1.5 rounded-full',
-							day.sets > 0 ? 'bg-primary' : day.isToday ? 'bg-background/25' : 'bg-transparent'
+							day.sets > 0 ? 'bg-primary' : selected ? 'bg-background/25' : 'bg-transparent'
 						)}
 					></span>
-				</div>
+				</button>
 			{/each}
+		</div>
+
+		<div class="mt-3 rounded-[20px] border border-border bg-card p-4" aria-live="polite">
+			{#key selectedDate}
+				<div in:fade={{ duration: prefersReducedMotion.current ? 0 : 180 }}>
+					<div class="flex flex-col gap-0.5">
+						<h3 class="font-display text-[15px] font-extrabold">{dayTitle}</h3>
+						{#if dayEntries.length > 0}
+							<span class="text-xs font-semibold text-muted-foreground">
+								{plural(dayEntries.length, ['упражнение', 'упражнения', 'упражнений'])} ·
+								{plural(daySets, ['подход', 'подхода', 'подходов'])}
+							</span>
+						{/if}
+					</div>
+
+					{#if dayEntries.length === 0}
+						<p class="mt-2 text-[13px] text-muted-foreground">
+							{selectedDate === today
+								? 'Сегодня пока ничего не отмечено.'
+								: 'В этот день тренировок не было.'}
+						</p>
+					{:else}
+						<ul class="mt-3 flex flex-col gap-2.5">
+							{#each dayEntries as entry (entry.id)}
+								<li class="flex items-center justify-between gap-3">
+									<div class="min-w-0">
+										<div class="truncate text-sm font-semibold">{entry.exerciseName}</div>
+										<div class="truncate text-xs text-muted-foreground">{entry.programTitle}</div>
+									</div>
+									<Badge variant="secondary" class="shrink-0">
+										{entry.setsDone} × {entry.repsDone}{entry.weightKg
+											? ` · ${entry.weightKg} кг`
+											: ''}
+									</Badge>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+			{/key}
 		</div>
 	</section>
 

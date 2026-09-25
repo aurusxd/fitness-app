@@ -231,4 +231,32 @@ test.describe('critical paths', () => {
 			await expect(page.getByText('Программа похудения E2E')).toBeVisible();
 		}
 	);
+
+	anonymousTest('a day on the home screen shows what was logged that day', async ({ page }) => {
+		await athleteWithALoggedSet(page, 902);
+		await page.goto('/home', { waitUntil: 'networkidle' });
+
+		const panel = page.locator('[aria-live="polite"]');
+		await expect(panel).toContainText('Сегодня');
+		await expect(panel).toContainText('Приседания без веса');
+		await expect(panel).toContainText('1 упражнение · 3 подхода');
+		await expect(panel).toContainText('3 × 12');
+
+		// Earlier days of this week exist unless today is Monday; each is empty for a new athlete.
+		// Pinned by position: a selector on the pressed state would move to another day once clicked.
+		const days = page.getByRole('group', { name: 'Дни недели' }).getByRole('button');
+		const selectable = await days.evaluateAll((buttons) =>
+			buttons.map(
+				(button) =>
+					!(button as HTMLButtonElement).disabled && button.getAttribute('aria-pressed') === 'false'
+			)
+		);
+		const earlierIndex = selectable.indexOf(true);
+		if (earlierIndex >= 0) {
+			const earlierDay = days.nth(earlierIndex);
+			await earlierDay.click();
+			await expect(earlierDay).toHaveAttribute('aria-pressed', 'true');
+			await expect(panel).toContainText('В этот день тренировок не было.');
+		}
+	});
 });

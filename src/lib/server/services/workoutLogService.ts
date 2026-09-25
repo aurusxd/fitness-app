@@ -60,6 +60,12 @@ export class WorkoutLogService {
 		return entries.map(toWorkoutLogDto);
 	}
 
+	/** Everything logged from `since` onwards, oldest first. */
+	async historySince(userId: number, since: Date): Promise<WorkoutLogDto[]> {
+		const entries = await this.workoutLogRepository.listForUserSince(userId, since);
+		return entries.map(toWorkoutLogDto);
+	}
+
 	async historyForProgram(userId: number, programId: number): Promise<WorkoutLogDto[]> {
 		const entries = await this.workoutLogRepository.listForUser(userId, programId);
 		return entries.map(toWorkoutLogDto);
