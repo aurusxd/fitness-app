@@ -1,18 +1,17 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import { CoachAvatar } from '$lib/ui/primitives/coach-avatar';
-	import { requestProgram } from '$lib/client/programs';
+	import { requestProgramDraft } from '$lib/client/trainer';
 	import { ChatBubble } from '$lib/ui/primitives/chat-bubble';
 	import { Input } from '$lib/ui/primitives/input';
 	import { Button } from '$lib/ui/primitives/button';
 	import { authFetch } from '$lib/client/telegram';
 	import type { ChatMessageDto } from '$lib/types';
 	import type { PageData } from './$types';
+	import ProgramDraftCard from './ProgramDraftCard.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -26,19 +25,30 @@
 	const historyIds = new Set(messages.map((message) => message.id));
 	let generating = $state(false);
 
-	/** The program is built from this conversation plus the profile, so it is offered right here. */
+	// Older versions of a draft stay addable but step back behind the newest one.
+	const latestDraftId = $derived(messages.findLast((message) => message.programDraft)?.id);
+
+	/** The program is built from this conversation plus the profile, and lands in it as a draft to add. */
 	async function buildProgram() {
 		generating = true;
 		errorMessage = null;
+		scrollToLatest();
 
-		const result = await requestProgram();
+		const result = await requestProgramDraft();
+		generating = false;
+
 		if ('error' in result) {
 			errorMessage = result.error;
-			generating = false;
 			return;
 		}
 
-		await goto(resolve('/(app)/programs/[id]', { id: String(result.program.id) }));
+		messages.push(result.message);
+		scrollToLatest();
+	}
+
+	function replaceMessage(updated: ChatMessageDto) {
+		const index = messages.findIndex((message) => message.id === updated.id);
+		if (index !== -1) messages[index] = updated;
 	}
 
 	/** The newest message is the one worth reading, and it lands below the fold as the thread grows. */
@@ -125,11 +135,20 @@
 		{#each messages as message (message.id)}
 			<ChatBubble role={message.role} fresh={!historyIds.has(message.id)}>
 				{message.content}
+				{#if message.programDraft}
+					<ProgramDraftCard
+						message={{ ...message, programDraft: message.programDraft }}
+						superseded={message.id !== latestDraftId}
+						onsaved={replaceMessage}
+					/>
+				{/if}
 			</ChatBubble>
 		{/each}
-		{#if sending}
+		{#if sending || generating}
 			<ChatBubble role="assistant" thinking fresh>
-				<span role="status" class="text-muted-foreground">Думаю над ответом…</span>
+				<span role="status" class="text-muted-foreground">
+					{generating ? 'Собираю программу…' : 'Думаю над ответом…'}
+				</span>
 			</ChatBubble>
 		{/if}
 	</div>
