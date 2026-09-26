@@ -186,6 +186,17 @@ test.describe('critical paths', () => {
 		await expect(card).toBeVisible();
 		await expect(page.getByText('Пн · Ср · 3 упражнения').last()).toBeVisible();
 
+		// Tapping the card shows the whole program before it is added.
+		await page
+			.getByRole('button', { name: /Посмотреть программу/ })
+			.last()
+			.click();
+		const preview = page.getByRole('dialog');
+		await expect(preview.getByText('Тяга к лицу')).toBeVisible();
+		await expect(preview.getByText('3 × 15 · отдых 45 с')).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(preview).toHaveCount(0);
+
 		await page.getByRole('button', { name: 'Добавить в программы' }).last().click();
 		await expect(page.getByText('Добавлена').last()).toBeVisible();
 		// Adding keeps the athlete in the conversation.
