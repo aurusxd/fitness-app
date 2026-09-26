@@ -89,7 +89,10 @@
 	}
 </script>
 
-<div class="mx-auto flex h-[calc(100dvh-7rem)] max-w-2xl flex-col px-6 py-6">
+<!-- Pinned between the top of the screen and the tab bar, so the composer always rests right on the bar. -->
+<div
+	class="fixed inset-x-0 top-0 bottom-[var(--tab-bar-clearance,5.5rem)] mx-auto flex max-w-2xl flex-col px-6 pt-6 pb-3"
+>
 	<div class="mb-6 flex items-center justify-between gap-3">
 		<div class="flex items-center gap-2.5">
 			<CoachAvatar />

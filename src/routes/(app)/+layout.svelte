@@ -10,6 +10,9 @@
 
 	let { children } = $props();
 
+	// Screens pinned to the bottom (the trainer chat) sit right above the tab bar: its height plus its `bottom-4` offset.
+	let tabBarHeight = $state(0);
+
 	const tabs = [
 		{ href: resolve('/(app)/home'), label: 'Главная', icon: HouseIcon },
 		{ href: resolve('/(app)/exercises'), label: 'Каталог', icon: SearchIcon },
@@ -30,12 +33,16 @@
 	<div class="nav-progress" aria-hidden="true"></div>
 {/if}
 
-<div class="min-h-dvh pb-28">
+<div
+	class="min-h-dvh pb-28"
+	style:--tab-bar-clearance={tabBarHeight ? `calc(${tabBarHeight}px + 1rem)` : undefined}
+>
 	{@render children()}
 </div>
 
 <!-- Every tab's code is fetched up front, so the first switch waits only for its data. -->
 <nav
+	bind:offsetHeight={tabBarHeight}
 	data-sveltekit-preload-code="eager"
 	class="tab-bar fixed inset-x-3.5 bottom-4 z-40 mx-auto flex max-w-md items-center justify-between rounded-[26px] border border-white/6 bg-[rgba(15,22,18,0.82)] px-2.5 py-2 backdrop-blur-lg"
 >
