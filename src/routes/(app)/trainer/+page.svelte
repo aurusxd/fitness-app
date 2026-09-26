@@ -59,7 +59,9 @@
 			id: -Date.now(),
 			role: 'user',
 			content,
-			createdAt: new Date().toISOString()
+			createdAt: new Date().toISOString(),
+			programDraft: null,
+			savedProgramId: null
 		});
 
 		sending = true;

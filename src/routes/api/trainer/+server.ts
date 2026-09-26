@@ -4,6 +4,7 @@ import { sendChatMessageSchema } from '$lib/validation/schemas';
 import {
 	AiTrainerService,
 	AiTrainerError,
+	InvalidAiResponseError,
 	RateLimitExceededError
 } from '$lib/server/services/aiTrainerService';
 import { DeepseekClient } from '$lib/server/external/deepseekClient';
@@ -18,17 +19,24 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'Неверный запрос' }, { status: 400 });
 	}
 
+	const { goal, level, constraints } = locals.user;
+	const profile = goal && level ? { goal, level, constraints } : null;
+
 	const aiClient = new DeepseekClient(config.deepseekApiKey, config.deepseekBaseUrl);
 	const aiTrainerService = new AiTrainerService(aiClient);
 
 	try {
-		const message = await aiTrainerService.sendMessage(locals.user.id, parsed.data.content);
+		const message = await aiTrainerService.sendMessage(
+			locals.user.id,
+			parsed.data.content,
+			profile
+		);
 		return json({ message });
 	} catch (error) {
 		if (error instanceof RateLimitExceededError) {
 			return json({ error: error.message }, { status: 429 });
 		}
-		if (error instanceof AiTrainerError) {
+		if (error instanceof AiTrainerError || error instanceof InvalidAiResponseError) {
 			logger.error({ err: error }, 'ai trainer request failed');
 			return json({ error: error.message }, { status: 502 });
 		}

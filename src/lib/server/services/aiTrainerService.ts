@@ -1,6 +1,10 @@
 import type { ChatMessageDto } from '$lib/types';
 import { generatedProgramSchema, type GeneratedProgram } from '$lib/validation/schemas';
-import { ChatMessageRepository, toChatMessageDto } from '../repositories/chatMessageRepository';
+import {
+	ChatMessageRepository,
+	toChatMessageDto,
+	type ChatMessageRow
+} from '../repositories/chatMessageRepository';
 import { ExerciseRepository } from '../repositories/exerciseRepository';
 import { ProgramRepository, type NewProgramExercise } from '../repositories/programRepository';
 import type { WorkoutProgram } from '../domain/workoutProgram';
@@ -8,7 +12,8 @@ import {
 	DeepseekApiError,
 	type AiChatMessage,
 	type AiChatOptions,
-	type AiClient
+	type AiClient,
+	type AiTool
 } from '../external/deepseekClient';
 import { logger } from '../logger';
 
@@ -27,12 +32,38 @@ Rules for exerciseName:
 
 The "title" field is shown to the athlete, so write it in Russian too.
 
-The athlete's goal and level come from their saved profile, given in the last message. The conversation before it is what they told their coach: take into account everything in it that shapes a program - available equipment, training days per week, session length, injuries and pain, exercises they like or want to avoid. Limits from the conversation add to the profile's constraints. If the conversation contradicts the profile's goal or level, follow the profile.`;
+The athlete's goal and level come from their saved profile, given in the last message. The conversation before it is what they told their coach: take into account everything in it that shapes a program - available equipment, training days per week, session length, injuries and pain, exercises they like or want to avoid. Limits from the conversation add to the profile's constraints. If the conversation contradicts the profile's goal or level, follow the profile.
+
+The conversation may already hold program drafts, attached to the coach's messages as JSON. If the athlete asked to change a draft, start from the latest one and apply exactly the requested changes, keeping everything else as it was.`;
 
 /** Without one the model mirrors the language of the last message, and the app is Russian (tech.md §5). */
 const CHAT_SYSTEM_PROMPT = `Ты — сертифицированный фитнес-тренер в мобильном приложении. Всегда отвечай по-русски, на «ты», коротко и по делу — один-два абзаца, без markdown-разметки и списков.
 Названия упражнений пиши по-русски, общепринятыми названиями (например, «Приседания со штангой»).
-Не ставь диагнозов и не давай медицинских рекомендаций: при боли советуй обратиться к врачу.`;
+Не ставь диагнозов и не давай медицинских рекомендаций: при боли советуй обратиться к врачу.
+Когда просят составить, собрать или поправить программу тренировок, вызови функцию build_program: она соберёт программу и покажет её карточкой с кнопкой «Добавить». Саму программу текстом не расписывай.
+Черновики программ приложены к твоим прошлым сообщениям как JSON только для контекста, сам JSON никогда не пиши.`;
+
+/** The model calls this instead of writing a program out as text (tech.md §5, v15). */
+const BUILD_PROGRAM_TOOL: AiTool = {
+	name: 'build_program',
+	description:
+		'Собрать черновик программы тренировок по профилю и разговору. Вызывай, когда просят составить новую программу или изменить черновик.'
+};
+
+const DRAFT_REPLY =
+	'Собрал программу. Посмотри и добавь её в программы, если подходит, или скажи, что поправить.';
+const PROFILE_REQUIRED_REPLY =
+	'Чтобы собрать программу, заполни в профиле цель и уровень, а потом попроси ещё раз.';
+
+/** Drafts ride along in the context as JSON, so the model knows what an edit request refers to. */
+function toAiMessage(row: ChatMessageRow): AiChatMessage {
+	return {
+		role: row.role,
+		content: row.programDraft
+			? `${row.content}\n\nЧерновик программы (JSON): ${JSON.stringify(row.programDraft)}`
+			: row.content
+	};
+}
 
 const LIBRARY_PROMPT_LIMIT = 120;
 
@@ -53,6 +84,20 @@ export class AiTrainerError extends Error {
 	constructor(message = 'ИИ-тренер сейчас недоступен. Попробуй ещё раз.') {
 		super(message);
 		this.name = 'AiTrainerError';
+	}
+}
+
+export class DraftNotFoundError extends Error {
+	constructor() {
+		super('Черновик программы не найден');
+		this.name = 'DraftNotFoundError';
+	}
+}
+
+export class DraftAlreadySavedError extends Error {
+	constructor() {
+		super('Эта программа уже добавлена');
+		this.name = 'DraftAlreadySavedError';
 	}
 }
 
@@ -95,7 +140,12 @@ export class AiTrainerService {
 		return rows.map(toChatMessageDto);
 	}
 
-	async sendMessage(userId: number, content: string): Promise<ChatMessageDto> {
+	/** `profile` is null while the athlete has not set a goal and level, which a program needs. */
+	async sendMessage(
+		userId: number,
+		content: string,
+		profile: ProfileForGeneration | null
+	): Promise<ChatMessageDto> {
 		const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 		const sentThisHour = await this.chatMessageRepository.countUserMessagesSince(
 			userId,
@@ -110,24 +160,77 @@ export class AiTrainerService {
 		const history = await this.chatMessageRepository.recentHistory(userId, HISTORY_LIMIT);
 		const messages: AiChatMessage[] = [
 			{ role: 'system', content: CHAT_SYSTEM_PROMPT },
-			...history.map((row) => ({
-				role: row.role,
-				content: row.content
-			}))
+			...history.map(toAiMessage)
 		];
 
-		const reply = await this.requestReplyWithRetry(messages);
+		const reply = await this.requestReplyWithRetry(messages, { tools: [BUILD_PROGRAM_TOOL] });
 
+		if (!reply.toolCalls?.includes(BUILD_PROGRAM_TOOL.name)) {
+			const assistantRow = await this.chatMessageRepository.append(
+				userId,
+				'assistant',
+				reply.content
+			);
+			return toChatMessageDto(assistantRow);
+		}
+
+		if (!profile) {
+			const assistantRow = await this.chatMessageRepository.append(
+				userId,
+				'assistant',
+				PROFILE_REQUIRED_REPLY
+			);
+			return toChatMessageDto(assistantRow);
+		}
+
+		const draft = await this.requestProgram(userId, profile);
 		const assistantRow = await this.chatMessageRepository.append(
 			userId,
 			'assistant',
-			reply.content
+			reply.content.trim() || DRAFT_REPLY,
+			draft
 		);
 		return toChatMessageDto(assistantRow);
 	}
 
+	/** Puts a fresh program draft into the chat as the coach's message, with no athlete message before it. */
+	async draftProgram(userId: number, profile: ProfileForGeneration): Promise<ChatMessageDto> {
+		const draft = await this.requestProgram(userId, profile);
+		const row = await this.chatMessageRepository.append(userId, 'assistant', DRAFT_REPLY, draft);
+		return toChatMessageDto(row);
+	}
+
+	/** Adds the draft attached to a chat message to the athlete's programs (tech.md §5, v15). */
+	async saveDraft(
+		userId: number,
+		messageId: number
+	): Promise<{ program: WorkoutProgram; message: ChatMessageDto }> {
+		const row = await this.chatMessageRepository.findForUser(messageId, userId);
+		if (!row?.programDraft) throw new DraftNotFoundError();
+		if (row.savedProgramId !== null) throw new DraftAlreadySavedError();
+
+		const result = generatedProgramSchema.safeParse(row.programDraft);
+		if (!result.success) {
+			logger.warn({ messageId, issues: result.error.issues }, 'stored program draft is invalid');
+			throw new InvalidAiResponseError();
+		}
+
+		const program = await this.saveGeneratedProgram(userId, result.data);
+		const saved = await this.chatMessageRepository.markDraftSaved(row.id, program.id);
+		return { program, message: toChatMessageDto(saved) };
+	}
+
 	/** Generates a structured workout program from the user's profile and persists it, or rejects without saving anything (tech.md §5). */
 	async generateProgram(userId: number, profile: ProfileForGeneration): Promise<WorkoutProgram> {
+		const program = await this.requestProgram(userId, profile);
+		return this.saveGeneratedProgram(userId, program);
+	}
+
+	/** Asks the model for a program and validates it, saving nothing. */
+	private async requestProgram(
+		userId: number,
+		profile: ProfileForGeneration
+	): Promise<GeneratedProgram> {
 		// Showing the model what the library already holds keeps it from inventing synonyms
 		// like "Dumbbell Biceps Curl" for an exercise stored as "Bicep Curl".
 		const known = await this.exerciseRepository.list();
@@ -146,7 +249,7 @@ export class AiTrainerService {
 						}
 					]
 				: []),
-			...history.map((row) => ({ role: row.role, content: row.content })),
+			...history.map(toAiMessage),
 			{ role: 'user', content: `Build my program now. ${buildProfileMessage(profile)}` }
 		];
 
@@ -169,7 +272,7 @@ export class AiTrainerService {
 			throw new InvalidAiResponseError();
 		}
 
-		return this.saveGeneratedProgram(userId, result.data);
+		return result.data;
 	}
 
 	private async saveGeneratedProgram(

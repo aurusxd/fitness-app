@@ -4,11 +4,18 @@ import { users, workoutPrograms } from '../db/schema';
 import { ChatMessageRepository } from '../repositories/chatMessageRepository';
 import { ExerciseRepository } from '../repositories/exerciseRepository';
 import { ProgramRepository } from '../repositories/programRepository';
-import type { AiChatMessage, AiClient, AiResponse } from '../external/deepseekClient';
+import type {
+	AiChatMessage,
+	AiChatOptions,
+	AiClient,
+	AiResponse
+} from '../external/deepseekClient';
 import { DeepseekApiError } from '../external/deepseekClient';
 import {
 	AiTrainerError,
 	AiTrainerService,
+	DraftAlreadySavedError,
+	DraftNotFoundError,
 	InvalidAiResponseError,
 	RateLimitExceededError,
 	type ProfileForGeneration
@@ -16,14 +23,16 @@ import {
 
 class FakeAiClient implements AiClient {
 	public calls: AiChatMessage[][] = [];
+	public options: (AiChatOptions | undefined)[] = [];
 	private readonly responses: (AiResponse | Error)[];
 
 	constructor(...responses: (AiResponse | Error)[]) {
 		this.responses = responses;
 	}
 
-	async chat(messages: AiChatMessage[]): Promise<AiResponse> {
+	async chat(messages: AiChatMessage[], options?: AiChatOptions): Promise<AiResponse> {
 		this.calls.push(messages);
+		this.options.push(options);
 		const next = this.responses[this.calls.length - 1];
 		if (next instanceof Error) throw next;
 		return next ?? { content: 'default reply' };
@@ -32,7 +41,7 @@ class FakeAiClient implements AiClient {
 
 const PROFILE: ProfileForGeneration = { goal: 'lose', level: 'beginner', constraints: null };
 
-const VALID_PROGRAM_JSON = JSON.stringify({
+const VALID_PROGRAM = {
 	title: 'Fat Loss Kickstart',
 	days: [
 		{
@@ -40,7 +49,12 @@ const VALID_PROGRAM_JSON = JSON.stringify({
 			exercises: [{ exerciseName: 'Push-Up', sets: 3, reps: '10-12', restSeconds: 60 }]
 		}
 	]
-});
+};
+
+const VALID_PROGRAM_JSON = JSON.stringify(VALID_PROGRAM);
+
+/** The coach answering by calling the program tool rather than in text. */
+const BUILD_PROGRAM_CALL: AiResponse = { content: '', toolCalls: ['build_program'] };
 
 describe('AiTrainerService', () => {
 	let db: Awaited<ReturnType<typeof createTestDb>>;
@@ -75,7 +89,7 @@ describe('AiTrainerService', () => {
 		const aiClient = new FakeAiClient({ content: 'Great, let’s get moving!' });
 		const service = makeService(aiClient);
 
-		const reply = await service.sendMessage(userId, 'I feel tired today');
+		const reply = await service.sendMessage(userId, 'I feel tired today', PROFILE);
 
 		expect(reply.role).toBe('assistant');
 		expect(reply.content).toBe('Great, let’s get moving!');
@@ -91,7 +105,7 @@ describe('AiTrainerService', () => {
 		const aiClient = new FakeAiClient({ content: 'ok' });
 		const service = makeService(aiClient);
 
-		await service.sendMessage(userId, 'hello');
+		await service.sendMessage(userId, 'hello', PROFILE);
 
 		const [systemPrompt, ...history] = aiClient.calls[0];
 		expect(systemPrompt.role).toBe('system');
@@ -103,7 +117,7 @@ describe('AiTrainerService', () => {
 		const aiClient = new FakeAiClient(new DeepseekApiError(500), new DeepseekApiError(500));
 		const service = makeService(aiClient);
 
-		await expect(service.sendMessage(userId, 'hi')).rejects.toThrow(AiTrainerError);
+		await expect(service.sendMessage(userId, 'hi', PROFILE)).rejects.toThrow(AiTrainerError);
 		expect(aiClient.calls).toHaveLength(2);
 	});
 
@@ -111,7 +125,7 @@ describe('AiTrainerService', () => {
 		const aiClient = new FakeAiClient(new DeepseekApiError(500), { content: 'recovered' });
 		const service = makeService(aiClient);
 
-		const reply = await service.sendMessage(userId, 'hi');
+		const reply = await service.sendMessage(userId, 'hi', PROFILE);
 
 		expect(reply.content).toBe('recovered');
 		expect(aiClient.calls).toHaveLength(2);
@@ -121,7 +135,7 @@ describe('AiTrainerService', () => {
 		const aiClient = new FakeAiClient(new DeepseekApiError(401));
 		const service = makeService(aiClient);
 
-		await expect(service.sendMessage(userId, 'hi')).rejects.toThrow(AiTrainerError);
+		await expect(service.sendMessage(userId, 'hi', PROFILE)).rejects.toThrow(AiTrainerError);
 		expect(aiClient.calls).toHaveLength(1);
 	});
 
@@ -133,7 +147,7 @@ describe('AiTrainerService', () => {
 		const aiClient = new FakeAiClient({ content: 'should not be called' });
 		const service = makeService(aiClient);
 
-		await expect(service.sendMessage(userId, 'one too many')).rejects.toThrow(
+		await expect(service.sendMessage(userId, 'one too many', PROFILE)).rejects.toThrow(
 			RateLimitExceededError
 		);
 		expect(aiClient.calls).toHaveLength(0);
@@ -265,6 +279,149 @@ describe('AiTrainerService', () => {
 			await service.generateProgram(userId, PROFILE);
 
 			expect(capturedOptions).toEqual({ responseFormat: 'json' });
+		});
+	});
+
+	describe('program drafts in the chat', () => {
+		it('offers the model a build_program tool on every chat message', async () => {
+			const aiClient = new FakeAiClient({ content: 'ok' });
+			const service = makeService(aiClient);
+
+			await service.sendMessage(userId, 'hello', PROFILE);
+
+			expect(aiClient.options[0]?.tools?.map((tool) => tool.name)).toEqual(['build_program']);
+		});
+
+		it('answers a program request with a validated draft, without adding it to the programs', async () => {
+			const aiClient = new FakeAiClient(BUILD_PROGRAM_CALL, { content: VALID_PROGRAM_JSON });
+			const service = makeService(aiClient);
+
+			const reply = await service.sendMessage(userId, 'Составь мне программу', PROFILE);
+
+			expect(reply.role).toBe('assistant');
+			expect(reply.content).not.toBe('');
+			expect(reply.programDraft).toEqual(VALID_PROGRAM);
+			expect(reply.savedProgramId).toBeNull();
+			expect(aiClient.options[1]).toEqual({ responseFormat: 'json' });
+
+			expect(await db.select().from(workoutPrograms).all()).toHaveLength(0);
+			expect(await exerciseRepository.findByNormalizedName('push-up')).toBeNull();
+
+			const history = await service.history(userId);
+			expect(history.at(-1)?.programDraft).toEqual(VALID_PROGRAM);
+		});
+
+		it('keeps the words the coach wrote alongside the tool call', async () => {
+			const aiClient = new FakeAiClient(
+				{ content: 'Лови программу на три дня.', toolCalls: ['build_program'] },
+				{ content: VALID_PROGRAM_JSON }
+			);
+			const service = makeService(aiClient);
+
+			const reply = await service.sendMessage(userId, 'Составь программу', PROFILE);
+
+			expect(reply.content).toBe('Лови программу на три дня.');
+		});
+
+		it('rejects an invalid draft and stores no coach reply', async () => {
+			const aiClient = new FakeAiClient(BUILD_PROGRAM_CALL, { content: 'not json at all' });
+			const service = makeService(aiClient);
+
+			await expect(service.sendMessage(userId, 'Составь программу', PROFILE)).rejects.toThrow(
+				InvalidAiResponseError
+			);
+
+			const history = await service.history(userId);
+			expect(history.map((message) => message.role)).toEqual(['user']);
+		});
+
+		it('asks for the profile instead of building a program when goal or level is missing', async () => {
+			const aiClient = new FakeAiClient(BUILD_PROGRAM_CALL);
+			const service = makeService(aiClient);
+
+			const reply = await service.sendMessage(userId, 'Составь программу', null);
+
+			expect(aiClient.calls).toHaveLength(1);
+			expect(reply.programDraft).toBeNull();
+			expect(reply.content).toContain('профил');
+		});
+
+		it('shows the model the latest draft, so an edit request builds on it', async () => {
+			await chatMessageRepository.append(userId, 'assistant', 'Собрал программу.', VALID_PROGRAM);
+			const aiClient = new FakeAiClient(BUILD_PROGRAM_CALL, { content: VALID_PROGRAM_JSON });
+			const service = makeService(aiClient);
+
+			await service.sendMessage(userId, 'Замени отжимания на жим гантелей', PROFILE);
+
+			for (const call of aiClient.calls) {
+				const draftMessage = call.find((message) => message.role === 'assistant');
+				expect(draftMessage?.content).toContain('Fat Loss Kickstart');
+				expect(draftMessage?.content).toContain('Push-Up');
+			}
+		});
+
+		it('puts a header-button draft into the chat as a coach message only', async () => {
+			const aiClient = new FakeAiClient({ content: VALID_PROGRAM_JSON });
+			const service = makeService(aiClient);
+
+			const message = await service.draftProgram(userId, PROFILE);
+
+			expect(message.programDraft).toEqual(VALID_PROGRAM);
+			const history = await service.history(userId);
+			expect(history.map((entry) => entry.role)).toEqual(['assistant']);
+			expect(await db.select().from(workoutPrograms).all()).toHaveLength(0);
+		});
+	});
+
+	describe('saveDraft', () => {
+		async function appendDraft(ownerId = userId) {
+			return chatMessageRepository.append(ownerId, 'assistant', 'Собрал программу.', VALID_PROGRAM);
+		}
+
+		it('adds the draft to the programs once and links it to the message', async () => {
+			const draftMessage = await appendDraft();
+			const service = makeService(new FakeAiClient());
+
+			const { program, message } = await service.saveDraft(userId, draftMessage.id);
+
+			expect(program.title).toBe('Fat Loss Kickstart');
+			expect(program.source).toBe('ai_generated');
+			expect(message.savedProgramId).toBe(program.id);
+
+			await expect(service.saveDraft(userId, draftMessage.id)).rejects.toThrow(
+				DraftAlreadySavedError
+			);
+			expect(await db.select().from(workoutPrograms).all()).toHaveLength(1);
+		});
+
+		it('refuses a draft from another athlete and a message with no draft', async () => {
+			const other = await db
+				.insert(users)
+				.values({ telegramId: '2', createdAt: new Date() })
+				.returning()
+				.get();
+			const othersDraft = await appendDraft(other.id);
+			const plainMessage = await chatMessageRepository.append(userId, 'assistant', 'Привет!');
+			const service = makeService(new FakeAiClient());
+
+			await expect(service.saveDraft(userId, othersDraft.id)).rejects.toThrow(DraftNotFoundError);
+			await expect(service.saveDraft(userId, plainMessage.id)).rejects.toThrow(DraftNotFoundError);
+			expect(await db.select().from(workoutPrograms).all()).toHaveLength(0);
+		});
+
+		it('lets a draft be added again once its program was deleted', async () => {
+			const draftMessage = await appendDraft();
+			const service = makeService(new FakeAiClient());
+			const first = await service.saveDraft(userId, draftMessage.id);
+
+			await programRepository.archiveForUser(first.program.id, userId);
+
+			const history = await service.history(userId);
+			expect(history.at(-1)?.savedProgramId).toBeNull();
+
+			const second = await service.saveDraft(userId, draftMessage.id);
+			expect(second.program.id).not.toBe(first.program.id);
+			expect(second.message.savedProgramId).toBe(second.program.id);
 		});
 	});
 });

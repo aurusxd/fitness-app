@@ -3,12 +3,21 @@ export interface AiChatMessage {
 	content: string;
 }
 
+/** A function the model may call instead of answering in text. None of ours take arguments. */
+export interface AiTool {
+	name: string;
+	description: string;
+}
+
 export interface AiChatOptions {
 	responseFormat?: 'text' | 'json';
+	tools?: AiTool[];
 }
 
 export interface AiResponse {
 	content: string;
+	/** Names of the tools the model called, in order. */
+	toolCalls?: string[];
 }
 
 export interface AiClient {
@@ -44,7 +53,21 @@ export class DeepseekClient implements AiClient {
 				body: JSON.stringify({
 					model: 'deepseek-chat',
 					messages,
-					...(options.responseFormat === 'json' ? { response_format: { type: 'json_object' } } : {})
+					...(options.responseFormat === 'json'
+						? { response_format: { type: 'json_object' } }
+						: {}),
+					...(options.tools?.length
+						? {
+								tools: options.tools.map((tool) => ({
+									type: 'function',
+									function: {
+										name: tool.name,
+										description: tool.description,
+										parameters: { type: 'object', properties: {} }
+									}
+								}))
+							}
+						: {})
 				}),
 				signal: controller.signal
 			});
@@ -54,10 +77,19 @@ export class DeepseekClient implements AiClient {
 			}
 
 			const data = (await response.json()) as {
-				choices: { message: { content: string } }[];
+				choices: {
+					message: {
+						content: string | null;
+						tool_calls?: { function: { name: string } }[];
+					};
+				}[];
 			};
 
-			return { content: data.choices[0]?.message.content ?? '' };
+			const message = data.choices[0]?.message;
+			return {
+				content: message?.content ?? '',
+				toolCalls: message?.tool_calls?.map((call) => call.function.name)
+			};
 		} finally {
 			clearTimeout(timeout);
 		}

@@ -1,8 +1,14 @@
+import type { GeneratedProgram } from '$lib/validation/schemas';
+
 export interface ChatMessageDto {
 	id: number;
 	role: 'user' | 'assistant';
 	content: string;
 	createdAt: string;
+	/** A program the coach attached to this reply, not yet in the programs list until added. */
+	programDraft: GeneratedProgram | null;
+	/** The program added from this draft; null while it is not added or after that program was deleted. */
+	savedProgramId: number | null;
 }
 
 export interface ProgramExerciseDto {
