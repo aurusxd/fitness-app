@@ -1,4 +1,5 @@
 import { index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import type { GeneratedProgram } from '../../validation/schemas';
 
 export const users = sqliteTable('users', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
@@ -81,7 +82,10 @@ export const aiChatMessages = sqliteTable(
 			.references(() => users.id),
 		role: text('role', { enum: ['user', 'assistant'] }).notNull(),
 		content: text('content').notNull(),
-		createdAt: integer('created_at', { mode: 'timestamp' }).notNull()
+		createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+		// A program the coach attached to this reply; it reaches the programs list only when added (tech.md §4, v15).
+		programDraft: text('program_draft', { mode: 'json' }).$type<GeneratedProgram>(),
+		savedProgramId: integer('saved_program_id').references(() => workoutPrograms.id)
 	},
 	(table) => [index('ai_chat_messages_user_id_idx').on(table.userId)]
 );
