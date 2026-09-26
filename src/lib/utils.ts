@@ -6,6 +6,9 @@ export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
 }
 
+/** Program days are stored as 0..6, Monday first. */
+export const WEEKDAYS_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
 /** Russian needs three forms: 1 день, 2 дня, 5 дней. */
 export function plural(count: number, forms: [string, string, string]): string {
 	const tens = count % 100;

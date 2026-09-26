@@ -9,7 +9,7 @@
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { fade } from 'svelte/transition';
 	import { prefersReducedMotion } from 'svelte/motion';
-	import { cn, GOAL_LABELS, muscleGroupLabel, plural } from '$lib/utils';
+	import { cn, GOAL_LABELS, muscleGroupLabel, plural, WEEKDAYS_SHORT } from '$lib/utils';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -32,7 +32,6 @@
 		await goto(resolve('/(app)/programs/[id]', { id: String(result.program.id) }));
 	}
 
-	const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 	const today = new Date().toISOString().slice(0, 10);
 	const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -63,7 +62,7 @@
 	const week = $derived(
 		data.week.perDay.slice(0, 7).map((day, index) => ({
 			...day,
-			label: WEEKDAYS[index],
+			label: WEEKDAYS_SHORT[index],
 			dayOfMonth: Number(day.date.slice(8, 10)),
 			isToday: day.date === today
 		}))

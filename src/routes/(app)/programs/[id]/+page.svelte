@@ -3,12 +3,10 @@
 	import { Badge } from '$lib/ui/primitives/badge';
 	import LogExerciseModal from './LogExerciseModal.svelte';
 	import type { WorkoutLogDto } from '$lib/types';
-	import { plural } from '$lib/utils';
+	import { plural, WEEKDAYS_SHORT } from '$lib/utils';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
-
-	const DAY_NAMES = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
 	let entries = $state<WorkoutLogDto[]>(data.entries);
 
@@ -42,7 +40,7 @@
 		{#each data.program.days as day (day.dayIndex)}
 			<Card>
 				<CardHeader>
-					<CardTitle>{DAY_NAMES[day.dayIndex] ?? `День ${day.dayIndex + 1}`}</CardTitle>
+					<CardTitle>{WEEKDAYS_SHORT[day.dayIndex] ?? `День ${day.dayIndex + 1}`}</CardTitle>
 				</CardHeader>
 				<CardContent class="flex flex-col gap-3">
 					{#each day.exercises as exercise (exercise.id)}
