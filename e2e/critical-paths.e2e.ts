@@ -163,14 +163,37 @@ test.describe('critical paths', () => {
 		await page.getByRole('button', { name: 'Отправить' }).click();
 		await expect(page.getByText('Хорошо, сегодня начнём спокойно.').last()).toBeVisible();
 
+		// In the chat the program lands as a draft to add, not straight in the programs list.
 		await page.getByRole('button', { name: 'Собрать программу' }).click();
-		await expect(page).toHaveURL(/\/programs\/\d+$/);
+		await expect(page.getByRole('button', { name: 'Добавить в программы' })).toBeVisible();
 
 		// The only way to know the conversation shaped the program is to look at what reached the model.
 		const sent = await (await request.get('http://localhost:5174/__last-program-request')).json();
 		const contents = sent.messages.map((message: { content: string }) => message.content);
 		expect(contents).toContain('Тренируюсь дома, есть только гантели');
 		expect(contents.at(-1)).toContain('Goal: lose');
+	});
+
+	test('asking the coach for a program gives a draft that can be added to the programs', async ({
+		page
+	}) => {
+		await page.goto('/trainer');
+
+		await page.getByPlaceholder('Спроси тренера…').fill('Составь программу на три дня');
+		await page.getByRole('button', { name: 'Отправить' }).click();
+
+		const card = page.getByText('Программа похудения E2E').last();
+		await expect(card).toBeVisible();
+		await expect(page.getByText('Пн · Ср · 3 упражнения').last()).toBeVisible();
+
+		await page.getByRole('button', { name: 'Добавить в программы' }).last().click();
+		await expect(page.getByText('Добавлена').last()).toBeVisible();
+		// Adding keeps the athlete in the conversation.
+		await expect(page).toHaveURL(/\/trainer$/);
+
+		await page.getByRole('link', { name: 'Открыть' }).last().click();
+		await expect(page).toHaveURL(/\/programs\/\d+$/);
+		await expect(page.getByRole('heading', { name: 'Программа похудения E2E' })).toBeVisible();
 	});
 
 	test('the coach shows it is working on a reply until the reply lands', async ({ page }) => {

@@ -29,6 +29,23 @@ function reply(content) {
 	return JSON.stringify({ choices: [{ message: { role: 'assistant', content } }] });
 }
 
+/** The coach answering a program request by calling the tool the chat offers (tech.md §5, v15). */
+function buildProgramCall() {
+	return JSON.stringify({
+		choices: [
+			{
+				message: {
+					role: 'assistant',
+					content: null,
+					tool_calls: [
+						{ id: 'call_1', type: 'function', function: { name: 'build_program', arguments: '{}' } }
+					]
+				}
+			}
+		]
+	});
+}
+
 const server = createServer((request, response) => {
 	if (request.method === 'GET' && request.url === '/__last-program-request') {
 		response
@@ -54,6 +71,16 @@ const server = createServer((request, response) => {
 
 		const wantsJson = payload.response_format?.type === 'json_object';
 		if (wantsJson) lastProgramRequest = payload;
+
+		const lastMessage = payload.messages?.at(-1)?.content ?? '';
+		const offersProgramTool = payload.tools?.some(
+			(tool) => tool.function?.name === 'build_program'
+		);
+		if (offersProgramTool && lastMessage.startsWith('Составь программу')) {
+			response.writeHead(200, { 'Content-Type': 'application/json' }).end(buildProgramCall());
+			return;
+		}
+
 		const content = wantsJson ? JSON.stringify(PROGRAM) : 'Хорошо, сегодня начнём спокойно.';
 
 		response.writeHead(200, { 'Content-Type': 'application/json' }).end(reply(content));
