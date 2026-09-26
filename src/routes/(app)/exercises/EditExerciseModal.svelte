@@ -89,7 +89,7 @@
 				<select
 					bind:value={muscleGroup}
 					required
-					class="h-11 rounded-[var(--radius-md)] border border-input bg-card px-3 text-sm text-foreground transition-colors focus-visible:border-primary/60 focus-visible:outline-none"
+					class="h-11 rounded-[var(--radius-md)] border border-input bg-card px-3 text-base text-foreground transition-colors focus-visible:border-primary/60 focus-visible:outline-none md:text-sm"
 				>
 					<option value="" disabled>Выбери группу мышц</option>
 					{#each muscleGroups as [key, label] (key)}

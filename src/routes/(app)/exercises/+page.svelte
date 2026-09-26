@@ -30,7 +30,7 @@
 			<select
 				name="muscleGroup"
 				onchange={submitOnChange}
-				class="h-11 flex-1 rounded-[var(--radius-md)] border border-input bg-card px-3 text-sm text-foreground"
+				class="h-11 flex-1 rounded-[var(--radius-md)] border border-input bg-card px-3 text-base text-foreground md:text-sm"
 			>
 				<option value="">Все группы мышц</option>
 				{#each data.muscleGroups as group (group)}
@@ -43,7 +43,7 @@
 			<select
 				name="equipment"
 				onchange={submitOnChange}
-				class="h-11 flex-1 rounded-[var(--radius-md)] border border-input bg-card px-3 text-sm text-foreground"
+				class="h-11 flex-1 rounded-[var(--radius-md)] border border-input bg-card px-3 text-base text-foreground md:text-sm"
 			>
 				<option value="">Любой инвентарь</option>
 				<option value="none" selected={data.filter.equipment === 'none'}>Свой вес</option>
