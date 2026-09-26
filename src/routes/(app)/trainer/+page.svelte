@@ -108,10 +108,11 @@
 		</Button>
 	</div>
 
+	<!-- Messages scrolling under the composer fade out instead of being cut against its edge. -->
 	<div
 		bind:this={thread}
 		aria-live="polite"
-		class="-mx-1.5 flex flex-1 flex-col gap-4 overflow-y-auto px-1.5 pt-1.5 pb-4"
+		class="-mx-1.5 flex flex-1 flex-col gap-4 overflow-y-auto [mask-image:linear-gradient(to_bottom,black_calc(100%-1rem),transparent)] px-1.5 pt-1.5 pb-4"
 	>
 		{#if messages.length === 0}
 			<p class="text-center text-sm text-muted-foreground">
@@ -136,7 +137,7 @@
 	{/if}
 
 	<form
-		class="flex items-center gap-2"
+		class="mt-2 flex items-center gap-2"
 		onsubmit={(event) => {
 			event.preventDefault();
 			sendMessage();
